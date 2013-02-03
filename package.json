@@ -1,0 +1,21 @@
+{
+  "name": "nobatis",
+  "version": "0.0.1",
+  "description":"simple mybatis-like dao for nodejs",
+  "author":"Dongsu Jang <iolothebard@gmail.com>",
+  "repository":{
+    "type": "git",
+    "url": "git://git@github.com/iolo/node-nobatis.git"
+  },
+  "license": "MIT",
+  "engine":{
+    "node": ">=0.8"
+  },
+  "dependencies": {
+    "mariasql": ">=0.1.12",
+    "underscore": ">=1.4.3"
+  },
+  "devDependencies": {
+    "nodeunit": ">=0.7.4"
+  }
+}
