@@ -1,6 +1,6 @@
 {
   "name": "nobatis",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description":"simple mybatis-like dao for nodejs",
   "author":"Dongsu Jang <iolothebard@gmail.com>",
   "repository":{
