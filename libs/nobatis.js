@@ -57,6 +57,10 @@ SqlSessionFactoryBuilder.prototype.build = function (config) {
 /////////////////////////////////////////////////////////////////////
 
 function build(config) {
+  // for convenient, returns default factory as a default
+  if (!config) {
+    return factories[DEF_FACTORY];
+  }
   var factoryId = config.id || DEF_FACTORY;
   var factory = factories[factoryId];
   if (!factory) {
