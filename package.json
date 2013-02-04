@@ -13,7 +13,8 @@
   },
   "dependencies": {
     "mariasql": ">=0.1.12",
-    "underscore": ">=1.4.3"
+    "underscore": ">=1.4.3",
+    "q": ">=0.8.12"
   },
   "devDependencies": {
     "nodeunit": ">=0.7.4"
