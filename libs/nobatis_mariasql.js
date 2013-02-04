@@ -1,8 +1,9 @@
 'use strict';
 
 var
-  nobatis = require('./nobatis'),
+  _ = require('underscore'),
   mariasql = require('mariasql'),
+  nobatis = require('./nobatis'),
   _DEBUG = true;//!!process.env['NOBATIS_DEBUG'];
 
 /////////////////////////////////////////////////////////////////////
@@ -10,36 +11,41 @@ var
 function MariasqlSession(config, conn) {
   this.config = config;
   this.conn = conn;
+  this.preparedQueries = {};
 }
 
+MariasqlSession.prototype.getQuery = function (query) {
+  return this.config.queries[query];
+};
+
 MariasqlSession.prototype.execute = function (query, params, callback) {
-  // TODO: avoid OOM for large result set
-  if (typeof this.config.queries === 'object' && query in this.config.queries) {
-    query = this.config.queries[query].query;
-  }
-  console.log('execute:', query, params);
-  var result = { };
-  this.conn.query(query, params)
+  var resultError, resultRows, resultInfo, preparedQuery;
+  preparedQuery = this.conn.prepare(query);
+  this.conn.query(preparedQuery(params))
     .on('result', function (result) {
-      _DEBUG && console.log('*** mariasql query result', result);
-      result.rows = [];
+      //_DEBUG && console.log('*** mariasql query result:', result);
+      // TODO: avoid OOM for large result set
+      resultRows = [];
       result
         .on('row', function (row) {
-          _DEBUG && console.log('*** mariasql query result row', row);
-          result.rows.push(row);
+          _DEBUG && console.log('*** mariasql query result row:', row);
+          resultRows.push(row);
         })
         .on('error', function (err) {
-          _DEBUG && console.log('*** mariasql query result error', err);
-          result.error = err;
+          _DEBUG && console.log('*** mariasql query result error:', err);
+          resultError = err;
         })
         .on('end', function (info) {
-          result.info = info;
-          _DEBUG && console.log('*** mariasql query result end', info);
+          _DEBUG && console.log('*** mariasql query result end:', info);
+          resultInfo = info;
+        })
+        .on('abort', function () {
+          _DEBUG && console.log('*** mariasql query result abort');
         });
     })
     .on('end', function () {
-      callback(result);
       _DEBUG && console.log('*** mariasql query end');
+      callback(resultError, resultRows, resultInfo);
     });
 };
 
@@ -54,48 +60,70 @@ MariasqlSession.prototype.rollback = function () {
 };
 
 MariasqlSession.prototype.select = function (query, params, callback) {
-  this.execute(query, params, function (result) {
-    if (result.error) {
-      return callback(result.error);
+  query = this.getQuery(query);
+  this.execute(query, params, function (err, rows, info) {
+    console.log('select:', arguments);
+    if (err) {
+      return callback(err);
     }
-    return callback(null, result.rows);
+    return callback(null, rows, info.numRows);
   });
 };
 
-MariasqlSession.prototype.selectWithBounds = function (query, params, rowBounds, callback) {
-  query = +' LIMIT ' + rowBounds.offset + ' LIMIT ' + rowBounds.limit;
-  this.execute(query, params, function (result) {
-    if (result.error) {
-      return callback(result.error);
+MariasqlSession.prototype.selectWithRowBounds = function (query, params, rowBounds, callback) {
+  query = this.getQuery(query);
+  if (rowBounds) {
+    query += ' LIMIT ' + rowBounds.offset + ',' + rowBounds.limit;
+  }
+  this.execute(query, params, function (err, rows, info) {
+    if (err) {
+      return callback(err);
     }
-    return callback(null, result.rows);
+    return callback(null, rows, info.numRows);
+  });
+};
+
+MariasqlSession.prototype.selectOne = function (query, params, callback) {
+  query = this.getQuery(query);
+  this.execute(query, params, function (err, rows, info) {
+    console.log('select:', arguments);
+    if (err) {
+      return callback(err);
+    }
+    if (rows.length !== 1) {
+      return callback(new nobatis.NobatisError('not a single row'));
+    }
+    return callback(null, rows[0], info.numRows);
   });
 };
 
 MariasqlSession.prototype.insert = function (query, params, callback) {
-  this.execute(query, params, function (result) {
-    if (result.error) {
-      return callback(result.error);
+  query = this.getQuery(query);
+  this.execute(query, params, function (err, rows, info) {
+    if (err) {
+      return callback(err);
     }
-    return callback(null, result.info);
+    return callback(null, info.affectedRows, info.insertId);
   });
 };
 
 MariasqlSession.prototype.update = function (query, params, callback) {
-  this.execute(query, params, function (result) {
-    if (result.error) {
-      return callback(result.error);
+  query = this.getQuery(query);
+  this.execute(query, params, function (err, rows, info) {
+    if (err) {
+      return callback(err);
     }
-    return callback(null, result.info);
+    return callback(null, info.affectedRows);
   });
 };
 
 MariasqlSession.prototype.destroy = function (query, params, callback) {
-  this.execute(query, params, function (result) {
-    if (result.error) {
-      return callback(result.error);
+  query = this.getQuery(query);
+  this.execute(query, params, function (err, rows, info) {
+    if (err) {
+      return callback(err);
     }
-    return callback(null, result.info);
+    return callback(null, info.affectedRows);
   });
 };
 
@@ -114,10 +142,10 @@ MariasqlSessionFactory.prototype.openSession = function () {
       _DEBUG && console.log('*** mariasql connect');
     })
     .on('error', function (err) {
-      _DEBUG && console.log('*** mariasql error', err);
+      _DEBUG && console.log('*** mariasql error:', err);
     })
-    .on('close', function (err) {
-      _DEBUG && console.log('*** mariasql close', err);
+    .on('close', function (hadError) {
+      _DEBUG && console.log('*** mariasql close:', hadError);
     });
   return new MariasqlSession(this.config, conn);
 };
@@ -143,7 +171,7 @@ function createSessionFactory(config) {
 /////////////////////////////////////////////////////////////////////
 
 module.exports = {
-  MariasqlSession:MariasqlSession,
-  MariasqlSessionFactory:MariasqlSessionFactory,
-  createSessionFactory:createSessionFactory
+  MariasqlSession: MariasqlSession,
+  MariasqlSessionFactory: MariasqlSessionFactory,
+  createSessionFactory: createSessionFactory
 };

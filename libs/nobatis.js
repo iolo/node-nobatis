@@ -2,16 +2,20 @@
 
 var
   _ = require('underscore'),
+  q = require('q'),
+  DEF_DRIVER = 'mariasql',
+  DEF_FACTORY = 'default',
+  factories = {},
   _DEBUG = true;//!!process.env['NOBATIS_DEBUG'];
 
 /////////////////////////////////////////////////////////////////////
 
-function NobatisError(message) {
-  Error.apply(this, arguments);
+function NobatisError(message, cause) {
+  this.name = 'NobatisError';
+  this.message = message || '';
+  this.cause = cause;
 }
-NobatisError.prototype = new Error();
-NobatisError.prototype.constructor = NobatisError;
-NobatisError.prototype.constructor = 'NobatisError';
+NobatisError.prototype = Error.prototype;
 
 /////////////////////////////////////////////////////////////////////
 
@@ -22,18 +26,15 @@ function RowBounds(offset, limit) {
 
 /////////////////////////////////////////////////////////////////////
 
-// TODO: need cleanup!
-function loadConfiguration(config, env, props) {
-  // load as module(must be valid json format) when config starts with './' or '../',
-  if (typeof defaults === 'string' && /^\.\.?\//.test(config)) {
-    config = require(config);
-  }
-  // TODO: environment configurations
-  if (typeof env === 'string') {
-  }
-  // override config with props
-  if (typeof props === 'object') {
-    config = _.defaults(props, config);
+function loadConfiguration(config) {
+  // when config starts with './' or '../',
+  // load as module(must be valid json format)
+  if (_.isString(config) && /^\.\.?\//.test(config)) {
+    try {
+      config = require(config);
+    } catch (e) {
+      throw new NobatisError('failed to load nobatis configuration module:' + config, e);
+    }
   }
   return config;
 }
@@ -43,30 +44,34 @@ function loadConfiguration(config, env, props) {
 function SqlSessionFactoryBuilder() {
 }
 
-SqlSessionFactoryBuilder.prototype.build = function () {
+SqlSessionFactoryBuilder.prototype.build = function (config) {
   var config = loadConfiguration.apply(this, arguments);
-  if (typeof config.dataSource !== 'object') {
-    throw 'invalid config file: no "dataSource"!';
-  }
+  var driver = config.dataSource.driver || DEF_DRIVER;
   try {
-    return require('./nobatis_' + config.dataSource.driver).createSessionFactory(config);
+    return require('./nobatis_' + driver).createSessionFactory(config);
   } catch (e) {
-    throw new NobatisError('bad or missing factory type:' + config.dataSource.driver, e);
+    throw new NobatisError('failed to load nobatis driver module:' + driver, e);
   }
 }
 
 /////////////////////////////////////////////////////////////////////
 
-function build() {
-  var builder = new SqlSessionFactoryBuilder();
-  return builder.build.apply(builder, arguments);
+function build(config) {
+  var factoryId = config.id || DEF_FACTORY;
+  var factory = factories[factoryId];
+  if (!factory) {
+    var builder = new SqlSessionFactoryBuilder();
+    factory = builder.build.apply(builder, arguments);
+    factories[factoryId] = factory;
+  }
+  return factory;
 }
 
 /////////////////////////////////////////////////////////////////////
 
 module.exports = {
-  NobatisError:NobatisError,
-  RowBounds:RowBounds,
-  SqlSessionFactoryBuilder:SqlSessionFactoryBuilder,
-  build:build
+  NobatisError: NobatisError,
+  RowBounds: RowBounds,
+  SqlSessionFactoryBuilder: SqlSessionFactoryBuilder,
+  build: build
 };

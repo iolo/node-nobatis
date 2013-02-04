@@ -1,167 +1,156 @@
 var _ = require('underscore'),
+  q = require('q'),
   mariasql = require('mariasql'),
   nobatis = require('../libs/nobatis'),
   config = {
-    "dataSource":{
-      "driver":"mariasql",
-      "host":"localhost",
-      "port":3306,
-      "user":"root",
-      "password":"",
-      "db":"test"
+    "dataSource": {
+      "driver": "mariasql",
+      "host": "localhost",
+      "port": 3306,
+      "user": "root",
+      "password": "",
+      "db": "test"
     },
-    "queries":{
-      "test1.selectAll":{
-        "type":"select",
-        "query":"SELECT * FROM test1",
-        "resultType":"Test1Model"
-      },
-      "test1.selectById":{
-        "type":"select",
-        "query":"SELECT * FROM test1 WHERE id=?",
-        "parameterType":"number",
-        "resultType":"object"
-      },
-      "test1.insert":{
-        "type":"insert",
-        "query":"INSERT INTO test1(name) VALUES(?)",
-        "parameterType":"object"
-      },
-      "test1.updateById":{
-        "type":"update",
-        "query":"UPDATE test1 SET name=? WHERE id=?",
-        "parameterType":"string"
-      },
-      "test1.deleteById":{
-        "type":"delete",
-        "query":"DELETE FROM test1 WHERE id=?",
-        "parameterType":"number"
-      }
+    "queries": {
+      "test1.selectAll": "SELECT * FROM test1",
+      "test1.selectById": "SELECT * FROM test1 WHERE id=?",
+      "test1.insert": "INSERT INTO test1(name) VALUES(:name)",
+      "test1.update": "UPDATE test1 SET name=:name WHERE id=:id",
+      "test1.delete": "DELETE FROM test1 WHERE id=?"
     }
   },
   factory = nobatis.build(config);
 
 module.exports = {
-  setUp:function (callback) {
-    var sqls = ['DROP TABLE IF EXISTS test1',
+  setUp: function (callback) {
+    var queries = ['DROP TABLE IF EXISTS test1',
       'CREATE TABLE test1 (id INTEGER AUTO_INCREMENT PRIMARY KEY, name VARCHAR(20))',
       'INSERT INTO test1(name) VALUES("one")',
       'INSERT INTO test1(name) VALUES("two")',
       'INSERT INTO test1(name) VALUES("three")'];
-    console.log('setUp:', sqls);
     factory.withSession(function (session) {
-      sqls.forEach(function (sql, index) {
-        session.execute(sql, [], function (result) {
-          console.log(result);
+      q.all(queries.map(function (query, index) {
+          var d = q.defer();
+          console.log('setUp#' + index, query);
+          session.execute(query, [], function (result) {
+            console.log(result);
+            d.resolve();
+          });
+          return d.promise;
+        })).done(function () {
+          callback();
         });
-      });
-      callback();
     });
   },
 
-  tearDown:function (callback) {
-    var sqls = ['DROP TABLE test1'];
-    console.log('tearDown:', sqls);
+  tearDown: function (callback) {
+    var queries = ['DROP TABLE test1'];
     factory.withSession(function (session) {
-      sqls.forEach(function (sql, index) {
-        session.execute(sql, [], function (result) {
-          console.log(result);
+      q.all(queries.map(function (query, index) {
+          var d = q.defer();
+          console.log('tearDown#' + index, query);
+          session.execute(query, [], function (result) {
+            console.log(result);
+            d.resolve();
+          });
+          return d.promise;
+        })).done(function () {
+          callback()
         });
-      });
-      callback();
     });
   },
 
-  testSelect:function (test) {
+  testSelect: function (test) {
     factory.withSession(function (session) {
-      console.log('select:');
-      session.select('test1.selectAll', [], function (err, result) {
+      session.select('test1.selectAll', [], function (err, rows, numRows) {
+        console.log('select', arguments);
         test.ifError(err);
-        console.log(result);
-        test.ok(result);
-        test.ok(_.isArray(result));
-        test.equal(3, result.length)
-        test.equal(1, result[0].id)
-        test.equal("one", result[0].name)
-        test.equal(2, result[1].id)
-        test.equal("two", result[1].name)
-        test.equal(3, result[2].id)
-        test.equal("three", result[2].name)
+        console.log(rows);
+        test.ok(rows);
+        test.ok(_.isArray(rows));
+        test.equal(3, rows.length)
+        test.equal(1, rows[0].id)
+        test.equal("one", rows[0].name)
+        test.equal(2, rows[1].id)
+        test.equal("two", rows[1].name)
+        test.equal(3, rows[2].id)
+        test.equal("three", rows[2].name)
+        test.equal(rows.length, numRows);
         test.done();
       });
     });
   },
 
-  testSelectWithBounds:function (test) {
+  testSelectOne: function (test) {
     factory.withSession(function (session) {
-      session.selectWithBounds('test1.selectAll', new noredis.RowBounds(1, 1), [], function (err, result) {
+      session.selectOne('test1.selectById', [1], function (err, row, numRows) {
+        console.log('selectOne:', arguments);
         test.ifError(err);
-        console.log(result);
-        test.ok(result);
-        test.ok(_.isArray(result));
-        test.equal(1, result.length)
-        test.equal(2, result[0].id)
-        test.equal("two", result[0].name)
+        test.ok(row);
+        test.equal(1, row.id)
+        test.equal("one", row.name)
+        test.equal(1, numRows);
+        test.done();
+      });
+    });
+  },
+
+  testSelectOne_noResult: function (test) {
+    factory.withSession(function (session) {
+      session.selectOne('test1.selectById', [-999], function (err, row, numRows) {
+        console.log('selectOne_noResult:', arguments);
+        test.ok(err instanceof nobatis.NobatisError);
+        test.done();
+      });
+    });
+  },
+
+  testSelectWithRowBounds: function (test) {
+    factory.withSession(function (session) {
+      session.selectWithRowBounds('test1.selectAll', [], new nobatis.RowBounds(1, 1), function (err, rows, numRows) {
+        console.log('selectWithRowBounds:', arguments);
+        test.ifError(err);
+        test.ok(rows);
+        test.ok(_.isArray(rows));
+        test.equal(1, rows.length)
+        test.equal(2, rows[0].id)
+        test.equal("two", rows[0].name)
+        test.equal(rows.length, numRows);
+        test.done();
+      });
+    });
+  },
+  testInsert: function (test) {
+    factory.withSession(function (session) {
+      session.insert('test1.insert', { name: 'foo'}, function (err, affectedRows, insertId) {
+        console.log('insert:', arguments);
+        test.ifError(err);
+        test.equal(1, affectedRows);
+        test.ok(insertId > 3)
+        test.done();
+      });
+    });
+  },
+
+  testUpdate: function (test) {
+    factory.withSession(function (session) {
+      session.update('test1.update', { id: 3, name: 'foo'}, function (err, affectedRows) {
+        console.log('update:', arguments);
+        test.ifError(err);
+        test.equal(1, affectedRows);
+        test.done();
+      });
+    });
+  },
+
+  testDestroy: function (test) {
+    factory.withSession(function (session) {
+      session.destroy('test1.delete', [3], function (err, affectedRows) {
+        console.log('destroy:', arguments);
+        test.ifError(err);
+        test.equal(1, affectedRows);
         test.done();
       });
     });
   }
-  /*,
-   testSelectOne:function (test) {
-   factory.selectOne('test1.selectById', [1], function (err, result) {
-   test.ifError(err);
-   console.log(result);
-   test.ok(result);
-   test.ok(_.isObject(result));
-   test.equal(1, result.id);
-   test.equal("one", result.name);
-   test.done();
-   });
-   },
-
-   testInsert:function (test) {
-   factory.insert('test1.insert', { name:'foo'}, function (err, result) {
-   test.ifError(err);
-   console.log(result);
-   test.ok(result);
-   test.ok(_.isString(result));//XXX:mariasql bug?
-   test.ok(result > 3)
-   test.done();
-   });
-   },
-
-   testUpdate:function (test) {
-   factory.update('test1.update', { id:3, name:'foo'}, function (err, result) {
-   test.ifError(err);
-   console.log('update:', result);
-   test.ok(result);
-   test.ok(_.isBoolean(result));
-   test.done();
-   });
-   },
-
-   testDestroy:function (test) {
-   factory.destroy('test1.delete', [3], function (err, result) {
-   test.ifError(err);
-   console.log('destroy:', result);
-   console.dir(result);
-   test.ok(result);
-   test.ok(_.isBoolean(result));
-   test.done();
-   });
-   },
-
-   testQuery:function (test) {
-   test1nobatis.query('SELECT * FROM test1 WHERE id < ?', [2], function (err, result) {
-   test.ifError(err);
-   console.log('query:', result);
-   test.ok(result);
-   test.ok(_.isArray(result));
-   test.equal(1, result.length)
-   test.equal(1, result[0].id)
-   test.equal("one", result[0].name)
-   test.done();
-   });
-   }
-   */
 };
