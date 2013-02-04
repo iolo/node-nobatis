@@ -1,3 +1,5 @@
+'use strict';
+
 var _ = require('underscore'),
   q = require('q'),
   mariasql = require('mariasql'),
@@ -107,7 +109,7 @@ module.exports = {
 
   testSelectWithRowBounds: function (test) {
     factory.withSession(function (session) {
-      session.selectWithRowBounds('test1.selectAll', [], new nobatis.RowBounds(1, 1), function (err, rows, numRows) {
+      session.selectWithRowBounds('test1.selectAll', [], {offset:1, limit:1}, function (err, rows, numRows) {
         console.log('selectWithRowBounds:', arguments);
         test.ifError(err);
         test.ok(rows);

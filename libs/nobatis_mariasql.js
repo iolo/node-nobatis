@@ -11,11 +11,10 @@ var
 function MariasqlSession(config, conn) {
   this.config = config;
   this.conn = conn;
-  this.preparedQueries = {};
 }
 
 MariasqlSession.prototype.getQuery = function (query) {
-  return this.config.queries[query];
+  return this.config.queries[query] || query;
 };
 
 MariasqlSession.prototype.execute = function (query, params, callback) {

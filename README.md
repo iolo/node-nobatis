@@ -28,7 +28,7 @@ How to Get SqlSession(using SqlSessionFactory)
 
 1. prepare configurations:
 <pre><code class="javascript">
-config = {
+var config = {
   "dataSource": {
     "driver": "mariasql",
     "host": "localhost",
@@ -46,20 +46,24 @@ config = {
   }
 };
 </pre></code>
-**or else** you can write configurations to a file(json module).
+**or** you can write configurations to a file(json module).
 3. import nobatis module
 <pre><code class="javascript">
-nobatis = require('nobatis');
+var nobatis = require('nobatis');
 </pre></code>
-4. load configurations and create ```SqlSessionFactory```:
+4. create ```SqlSessionFactory``` with configutaion:
 <pre><code class="javascript">
-ssf = nobatis.build(config);
+var ssf = nobatis.build(config);
 </pre></code>
-**or else** you can load configuration from a file(json module):
+**or** create one with a configuration file(json module):
 <pre><code class="javascript">
-ssf = nobatis.build('./config');
+var ssf = nobatis.build(require('./config'));
 </pre></code>
-4. now you can use ```openSession()``` method to get SqlSession:
+**or** get the default one:
+<pre><code class="javascript">
+var ssf = nobatis.build();
+</pre></code>
+4. now ```openSession()```:
 <pre><code class="javascript">
 var session = null;
 try {
@@ -69,10 +73,10 @@ try {
   session && session.close();
 }
 </pre></code>
-*or* you can use ```withSession()``` method:
+*or* ```withSession()```:
 <pre><code class="javascript">
 ssf.withSession(function (session) {
-  // use session here …
+  // use session here ...
 });
 </pre></code>
 
