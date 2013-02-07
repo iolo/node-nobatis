@@ -22,11 +22,9 @@ var _ = require('underscore'),
     }
   },
   factory = nobatis.build(config),
-  testDao = daofactory.createDao(factory, {
+  testDao = nobatis.createDao({
     table: 'test1',
-    model: {id: 0, name: 'noname'},
-    primaryKey: 'id',
-    primaryKeyGenerated: true
+    defaults: {id: 0, name: 'noname'}
   });
 
 module.exports = {
@@ -66,6 +64,20 @@ module.exports = {
           callback()
         });
     });
+  },
+
+  testNew: function (test) {
+    var obj1 = testDao.createNew();
+    test.ok(testDao.isNew(obj1));
+    test.equal(0, obj1.id);
+    test.equal('noname', obj1.name);
+
+    var obj2 = testDao.createNew({name: 'foo'});
+    test.ok(testDao.isNew(obj1));
+    test.equal(0, obj2.id);
+    test.equal('foo', obj2.name);
+
+    test.done();
   },
 
   testLoad: function (test) {
@@ -127,9 +139,9 @@ module.exports = {
     });
   },
 
-  testAllWithRowBounds: function (test) {
-    testDao.allWithRowBounds({offset: 1, limit: 1}, function (err, rows, numRows) {
-      console.log('*** allWithRowBounds:', arguments);
+  testAll_bounds: function (test) {
+    testDao.all({offset: 1, limit: 1}, function (err, rows, numRows) {
+      console.log('*** all_bounds:', arguments);
       test.ifError(err);
 
       test.ok(rows);
@@ -145,6 +157,7 @@ module.exports = {
   testSave_insert: function (test) {
     var obj = testDao.createNew({name: 'foo'});
     test.ok(testDao.isNew(obj));
+    test.equal('foo', obj.name);
     console.log('*** create new to insert: ', obj);
 
     testDao.save(obj, function (err, affectedRows, insertId) {
@@ -152,8 +165,11 @@ module.exports = {
 
       test.ifError(err);
 
+      test.equal(1, affectedRows);
+      test.ok(insertId);
+
       testDao.load(insertId, function (err, reloadedObj) {
-        console.log('*** load after insert:', reloadedObj);
+        console.log('*** load after insert:', arguments);
         test.ifError(err);
 
         test.equal('foo', reloadedObj.name);

@@ -2,80 +2,110 @@
 
 var
   _ = require('underscore'),
+  nobatis = require('./nobatis'),
   DEF_PRIMARY_KEY = 'id',
   DEF_PRIMARY_KEY_GENERATED = true,
   DEF_PRIMARY_KEY_NEW = 0,
   _DEBUG = !!process.env['NOBATIS_DEBUG'];
 
-function BaseDao(sqlSessionFactory, config) {
-  this.sqlSessionFactory = sqlSessionFactory;
-  this.config = _.defaults(config || {}, {
-    model: {},
-    primaryKey: DEF_PRIMARY_KEY,
-    primaryKeyGenerated: DEF_PRIMARY_KEY_GENERATED,
-    primaryKeyNew: DEF_PRIMARY_KEY_NEW,
-    select: config.table + '.select',
-    update: config.table + '.update',
-    insert: config.table + '.insert',
-    delete: config.table + '.delete',
-    selectAll: config.table + '.selectAll'
-  });
-  this.config.model[this.config.primaryKey] = this.config.primaryKeyNew;
-
+function BaseDao(config) {
   _DEBUG && console.log('create dao: ', config);
+
+  this.withSqlSessionFactory(config.sqlSessionFactory)
+    .withTable(config.table)
+    .withPrimaryKey(config.primaryKey, config.primaryKeyGenerated, config.primaryKeyNew)
+    .withDefaults(config.defaults)
+    .withQueries(config.queries);
 }
 
+BaseDao.prototype.withSqlSessionFactory = function (sqlSessionFactory) {
+  if (!sqlSessionFactory) {
+    throw new nobatis.NobatisError('no sqlSessionFactory specified');
+  }
+  this.sqlSessionFactory = sqlSessionFactory;
+  return this;
+};
+
 BaseDao.prototype.withTable = function (table) {
-  this.config.table = table;
+  if (!table) {
+    throw new nobatis.NobatisError('no table specified');
+  }
+  this.table = table;
+  return this;
 };
 
-BaseDao.prototype.withModel = function (model) {
-  this.config.model = _.clone(model);
+BaseDao.prototype.withPrimaryKey = function (primaryKey, primaryKeyGenerated, primaryKeyNew) {
+  this.primaryKey = primaryKey || DEF_PRIMARY_KEY;
+  this.primaryKeyGenerated = _.isUndefined(primaryKeyGenerated) ? DEF_PRIMARY_KEY_GENERATED : primaryKeyGenerated;
+  this.primaryKeyNew = _.isUndefined(primaryKeyNew) ? DEF_PRIMARY_KEY_NEW : primaryKeyNew;
+  return this;
 };
 
-BaseDao.prototype.withPrimaryKey = function (primaryKey, primaryKeyGenerated) {
-  this.config.primaryKey = primaryKey;
-  this.config.primaryKeyGenerated = !!primaryKeyGenerated;
+BaseDao.prototype.withDefaults = function (defaults) {
+  this.defaults = {};
+  this.defaults[this.primaryKey] = this.primaryKeyNew;
+  _.defaults(this.defaults, defaults);
+  return this;
+};
+
+BaseDao.prototype.withQueries = function (queries) {
+  this.queries = _.defaults(queries || {}, {
+    select: this.table + '.select',
+    insert: this.table + '.insert',
+    update: this.table + '.update',
+    delete: this.table + '.delete',
+    selectAll: this.table + '.selectAll'
+  });
+
+  var queryMapper = this.sqlSessionFactory.queryMapper;
+  _.each(this.queries, function (query) {
+    if (query === queryMapper.get(query)) {
+      throw new nobatis.NobatisError('no "' + query + '" query in sessionFactory');
+    }
+  });
 };
 
 BaseDao.prototype.createNew = function (obj) {
-  return _.defaults(obj || {}, this.config.model);
+  _DEBUG && console.log('dao new:', obj);
+  return _.defaults(obj || {}, this.defaults);
 };
 
 BaseDao.prototype.isNew = function (obj) {
-  return obj[this.config.primaryKey] === this.config.primaryKeyNew;
+  return obj[this.primaryKey] === this.primaryKeyNew;
 };
 
 BaseDao.prototype.load = function (pk, callback) {
-  var self = this;
+  var selectQuery = this.queries.select;
   this.sqlSessionFactory.withSession(function (session) {
     _DEBUG && console.log('dao load:', pk);
-    session.selectOne(self.config.select, [ pk ], callback);
+    session.selectOne(selectQuery, [ pk ], callback);
   });
 };
 
 BaseDao.prototype.save = function (obj, callback) {
-  var self = this;
-  this.sqlSessionFactory.withSession(function (session) {
-    _DEBUG && console.log('dao save:', obj);
-    if (self.isNew(obj)) {
+  if (this.isNew(obj)) {
+    var self = this, insertQuery = this.queries.insert;
+    this.sqlSessionFactory.withSession(function (session) {
       _DEBUG && console.log('dao save insert:', obj);
-      session.insert(self.config.insert, obj, function (err, affectedRows, insertId) {
+      session.insert(insertQuery, obj, function (err, affectedRows, insertId) {
         _DEBUG && console.log('dao save insert result:', arguments);
         if (err) {
           return callback(err);
         }
-        if (self.config.primaryKeyGenerated) {
-          obj[self.config.primaryKey] = insertId;
+        if (self.primaryKeyGenerated) {
+          obj[self.primaryKey] = insertId;
         }
         return callback(null, affectedRows, insertId);
         // XXX: avoid concurrency issue
         // 'cause mysql doesn't support "INSERT ... RETRUNING ..."
         //return self.load(insertId, callback);
       });
-    } else {
+    });
+  } else {
+    var updateQuery = this.queries.update;
+    this.sqlSessionFactory.withSession(function (session) {
       _DEBUG && console.log('dao save update:', obj);
-      session.update(self.config.update, obj, function (err, affectedRows) {
+      session.update(updateQuery, obj, function (err, affectedRows) {
         _DEBUG && console.log('dao save update result:', arguments);
         if (err) {
           return callback(err);
@@ -83,33 +113,33 @@ BaseDao.prototype.save = function (obj, callback) {
         return callback(null, affectedRows);
         // XXX: avoid concurrency issue
         // 'cause mysql doesn't support "INSERT ... RETRUNING ..."
-        //return self.load(obj[self.config.primaryKey], callback);
+        //return self.load(obj[self.primaryKey], callback);
       });
-    }
-  });
+    });
+  }
 };
 
 BaseDao.prototype.destroy = function (pk, callback) {
-  var self = this;
+  var deleteQuery = this.queries.delete;
   this.sqlSessionFactory.withSession(function (session) {
     _DEBUG && console.log('dao destroy:', pk);
-    session.destroy(self.config.delete, [ pk ], callback);
+    session.destroy(deleteQuery, [ pk ], callback);
   });
 };
 
-BaseDao.prototype.all = function (callback) {
-  var self = this;
-  this.sqlSessionFactory.withSession(function (session) {
+BaseDao.prototype.all = function (bounds, callback) {
+  var args = [ this.queries.selectAll, [] ];
+  if (arguments.length === 2) { // with 'bounds' argument
+    _DEBUG && console.log('dao all bounds:', bounds);
+    args.push(bounds);
+    args.push(callback);
+  } else { // with 'bounds' argument
     _DEBUG && console.log('dao all:');
-    session.select(self.config.selectAll, [], callback);
-  });
-};
-
-BaseDao.prototype.allWithRowBounds = function (rowBounds, callback) {
-  var self = this;
+    callback = bounds;
+    args.push(callback);
+  }
   this.sqlSessionFactory.withSession(function (session) {
-    _DEBUG && console.log('dao allWithRowBounds:', rowBounds);
-    session.selectWithRowBounds(self.config.selectAll, [], rowBounds, callback);
+    session.select.apply(session, args);
   });
 };
 
@@ -123,8 +153,8 @@ BaseDao.prototype.allWithRowBounds = function (rowBounds, callback) {
 
 /////////////////////////////////////////////////////////////////////
 
-function createDao(sqlSessionFactory, config) {
-  return new BaseDao(sqlSessionFactory, config);
+function createDao(config) {
+  return new BaseDao(config);
 }
 
 /////////////////////////////////////////////////////////////////////

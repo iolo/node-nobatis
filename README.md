@@ -92,7 +92,7 @@ session.select('test1.selectAll', [], function(err, rows, numRows) {
 
 * select rows with row bounds
 <pre><code class="javascript">
-session.selectWithRowBounds('test1.selectAll', [], new nobatis.RowBounds(2, 2), function(err, rows, numRows) {
+session.select('test1.selectAll', [], {offset:2, limit:2}, function(err, rows, numRows) {
     ...
 });
 </pre></code>
@@ -130,17 +130,25 @@ How to Create DAO(using NobatisDao)
 
 <pre><code class="javascript">
 var nobatis = require('nobatis');
-var ssf = nobatis.build({
-  ...
-});
+// create dao
 var dao = nobatis.createDao({
   table: 'test1',
   primaryKey: 'id',
   primaryKeyGenerated: true,
-  model: {
+  defaults: {
     id: 0,
     name: ''
   }
+}, factoryConfig);
+// or
+var dao = nobatis.createDao()
+  .withSqlSessionFactory(nobatis.build(...))
+  .withTable('test1')
+  .withPrimaryKey('id', true)
+  .withDefaults({
+    id: 0,
+    name: ''
+  });
 });
 
 var obj = dao.createNew();
@@ -170,7 +178,7 @@ dao.all(function (err, rows, numRows) {
     // assert(rows.length === numRows);
 });
 
-dao.allWithRowBounds({offset:10, limit:10}, function (err, rows, numRows) {
+dao.all({offset:10, limit:10}, function (err, rows, numRows) {
     ...
     // assert(rows.length === numRows);
     // assert(rows.length <= limit);

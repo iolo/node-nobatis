@@ -8,14 +8,10 @@ var
 
 /////////////////////////////////////////////////////////////////////
 
-function MariasqlSession(config, conn) {
-  this.config = config;
+function MariasqlSession(conn, queryMapper) {
   this.conn = conn;
+  this.queryMapper = queryMapper;
 }
-
-MariasqlSession.prototype.getQuery = function (query) {
-  return this.config.queries[query] || query;
-};
 
 MariasqlSession.prototype.execute = function (query, params, callback) {
   var resultError, resultRows, resultInfo, preparedQuery;
@@ -58,8 +54,13 @@ MariasqlSession.prototype.commit = function () {
 MariasqlSession.prototype.rollback = function () {
 };
 
-MariasqlSession.prototype.select = function (query, params, callback) {
-  query = this.getQuery(query);
+MariasqlSession.prototype.select = function (query, params, bounds, callback) {
+  query = this.queryMapper.get(query);
+  if (arguments.length === 4) { // with 'bounds' argument
+    query += ' LIMIT ' + bounds.offset + ',' + bounds.limit;
+  } else { // without 'bounds' argument
+    callback = arguments[2];
+  }
   this.execute(query, params, function (err, rows, info) {
     console.log('select:', arguments);
     if (err) {
@@ -69,21 +70,8 @@ MariasqlSession.prototype.select = function (query, params, callback) {
   });
 };
 
-MariasqlSession.prototype.selectWithRowBounds = function (query, params, rowBounds, callback) {
-  query = this.getQuery(query);
-  if (rowBounds) {
-    query += ' LIMIT ' + rowBounds.offset + ',' + rowBounds.limit;
-  }
-  this.execute(query, params, function (err, rows, info) {
-    if (err) {
-      return callback(err);
-    }
-    return callback(null, rows, info.numRows);
-  });
-};
-
 MariasqlSession.prototype.selectOne = function (query, params, callback) {
-  query = this.getQuery(query);
+  query = this.queryMapper.get(query);
   this.execute(query, params, function (err, rows, info) {
     console.log('select:', arguments);
     if (err) {
@@ -97,7 +85,7 @@ MariasqlSession.prototype.selectOne = function (query, params, callback) {
 };
 
 MariasqlSession.prototype.insert = function (query, params, callback) {
-  query = this.getQuery(query);
+  query = this.queryMapper.get(query);
   this.execute(query, params, function (err, rows, info) {
     if (err) {
       return callback(err);
@@ -107,7 +95,7 @@ MariasqlSession.prototype.insert = function (query, params, callback) {
 };
 
 MariasqlSession.prototype.update = function (query, params, callback) {
-  query = this.getQuery(query);
+  query = this.queryMapper.get(query);
   this.execute(query, params, function (err, rows, info) {
     if (err) {
       return callback(err);
@@ -117,7 +105,7 @@ MariasqlSession.prototype.update = function (query, params, callback) {
 };
 
 MariasqlSession.prototype.destroy = function (query, params, callback) {
-  query = this.getQuery(query);
+  query = this.queryMapper.get(query);
   this.execute(query, params, function (err, rows, info) {
     if (err) {
       return callback(err);
@@ -128,14 +116,21 @@ MariasqlSession.prototype.destroy = function (query, params, callback) {
 
 /////////////////////////////////////////////////////////////////////
 
-function MariasqlSessionFactory(config) {
-  _DEBUG && console.log('*** create mariasql session factory:', config)
-  this.config = config;
+function createMariasqlSession(conn, queryMapper) {
+  return new MariasqlSession(conn, queryMapper);
+}
+
+/////////////////////////////////////////////////////////////////////
+
+function MariasqlSessionFactory(dataSource, queryMapper) {
+  _DEBUG && console.log('*** create mariasql session factory:', dataSource)
+  this.dataSource = dataSource;
+  this.queryMapper = queryMapper;
 }
 
 MariasqlSessionFactory.prototype.openSession = function () {
   var conn = new mariasql();
-  conn.connect(this.config.dataSource);
+  conn.connect(this.dataSource);
   conn
     .on('connect', function () {
       _DEBUG && console.log('*** mariasql connect');
@@ -146,7 +141,7 @@ MariasqlSessionFactory.prototype.openSession = function () {
     .on('close', function (hadError) {
       _DEBUG && console.log('*** mariasql close:', hadError);
     });
-  return new MariasqlSession(this.config, conn);
+  return new MariasqlSession(conn, this.queryMapper);
 };
 
 MariasqlSessionFactory.prototype.withSession = function (callback) {
@@ -163,14 +158,15 @@ MariasqlSessionFactory.prototype.withSession = function (callback) {
 
 /////////////////////////////////////////////////////////////////////
 
-function createSessionFactory(config) {
-  return new MariasqlSessionFactory(config);
+function createSessionFactory(dataSource, queryMapper) {
+  return new MariasqlSessionFactory(dataSource, queryMapper);
 }
 
 /////////////////////////////////////////////////////////////////////
 
 module.exports = {
   MariasqlSession: MariasqlSession,
+  createMariasqlSession: createMariasqlSession,
   MariasqlSessionFactory: MariasqlSessionFactory,
   createSessionFactory: createSessionFactory
 };

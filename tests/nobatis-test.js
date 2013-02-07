@@ -106,10 +106,10 @@ module.exports = {
     });
   },
 
-  testSelectWithRowBounds: function (test) {
+  testSelect_bounds: function (test) {
     factory.withSession(function (session) {
-      session.selectWithRowBounds('test1.selectAll', [], {offset:1, limit:1}, function (err, rows, numRows) {
-        console.log('selectWithRowBounds:', arguments);
+      session.select('test1.selectAll', [], {offset:1, limit:1}, function (err, rows, numRows) {
+        console.log('select_bounds:', arguments);
         test.ifError(err);
         test.ok(rows);
         test.ok(_.isArray(rows));
