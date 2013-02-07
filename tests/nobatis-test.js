@@ -2,7 +2,6 @@
 
 var _ = require('underscore'),
   q = require('q'),
-  mariasql = require('mariasql'),
   nobatis = require('../libs/nobatis'),
   config = {
     "dataSource": {
@@ -15,7 +14,7 @@ var _ = require('underscore'),
     },
     "queries": {
       "test1.selectAll": "SELECT * FROM test1",
-      "test1.selectById": "SELECT * FROM test1 WHERE id=?",
+      "test1.select": "SELECT * FROM test1 WHERE id=?",
       "test1.insert": "INSERT INTO test1(name) VALUES(:name)",
       "test1.update": "UPDATE test1 SET name=:name WHERE id=:id",
       "test1.delete": "DELETE FROM test1 WHERE id=?"
@@ -85,7 +84,7 @@ module.exports = {
 
   testSelectOne: function (test) {
     factory.withSession(function (session) {
-      session.selectOne('test1.selectById', [1], function (err, row, numRows) {
+      session.selectOne('test1.select', [1], function (err, row, numRows) {
         console.log('selectOne:', arguments);
         test.ifError(err);
         test.ok(row);
@@ -99,7 +98,7 @@ module.exports = {
 
   testSelectOne_noResult: function (test) {
     factory.withSession(function (session) {
-      session.selectOne('test1.selectById', [-999], function (err, row, numRows) {
+      session.selectOne('test1.select', [-999], function (err, row, numRows) {
         console.log('selectOne_noResult:', arguments);
         test.ok(err instanceof nobatis.NobatisError);
         test.done();

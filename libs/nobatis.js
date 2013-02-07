@@ -3,10 +3,10 @@
 var
   _ = require('underscore'),
   q = require('q'),
+  factories = {},
   DEF_DRIVER = 'mariasql',
   DEF_FACTORY = 'default',
-  factories = {},
-  _DEBUG = true;//!!process.env['NOBATIS_DEBUG'];
+  _DEBUG = !!process.env['NOBATIS_DEBUG'];
 
 /////////////////////////////////////////////////////////////////////
 
