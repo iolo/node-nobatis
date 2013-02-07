@@ -61,17 +61,30 @@ BaseDao.prototype.save = function (obj, callback) {
     if (self.isNew(obj)) {
       _DEBUG && console.log('dao save insert:', obj);
       session.insert(self.config.insert, obj, function (err, affectedRows, insertId) {
+        _DEBUG && console.log('dao save insert result:', arguments);
         if (err) {
           return callback(err);
         }
         if (self.config.primaryKeyGenerated) {
           obj[self.config.primaryKey] = insertId;
         }
-        return callback(null, obj);
+        return callback(null, affectedRows, insertId);
+        // XXX: avoid concurrency issue
+        // 'cause mysql doesn't support "INSERT ... RETRUNING ..."
+        //return self.load(insertId, callback);
       });
     } else {
       _DEBUG && console.log('dao save update:', obj);
-      session.update(self.config.update, obj, callback);
+      session.update(self.config.update, obj, function (err, affectedRows) {
+        _DEBUG && console.log('dao save update result:', arguments);
+        if (err) {
+          return callback(err);
+        }
+        return callback(null, affectedRows);
+        // XXX: avoid concurrency issue
+        // 'cause mysql doesn't support "INSERT ... RETRUNING ..."
+        //return self.load(obj[self.config.primaryKey], callback);
+      });
     }
   });
 };

@@ -147,14 +147,18 @@ module.exports = {
     test.ok(testDao.isNew(obj));
     console.log('*** create new to insert: ', obj);
 
-    testDao.save(obj, function (err, savedObj) {
+    testDao.save(obj, function (err, affectedRows, insertId) {
       console.log('*** save insert:', arguments);
 
       test.ifError(err);
-      test.ok(savedObj);
-      test.ok(!testDao.isNew(savedObj));
-      test.equal('foo', savedObj.name);
-      test.done();
+
+      testDao.load(insertId, function (err, reloadedObj) {
+        console.log('*** load after insert:', reloadedObj);
+        test.ifError(err);
+
+        test.equal('foo', reloadedObj.name);
+        test.done();
+      });
     });
   },
 
@@ -170,7 +174,7 @@ module.exports = {
         test.ifError(err);
 
         testDao.load(3, function (err, reloadedObj) {
-          console.log('*** load 3 after update:', reloadedObj);
+          console.log('*** load after update:', reloadedObj);
           test.ifError(err);
 
           test.equal('foo', reloadedObj.name);

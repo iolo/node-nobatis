@@ -39,7 +39,7 @@ var config = {
   },
   "queries": {
     "test1.selectAll": "SELECT * FROM test1",
-    "test1.selectById": "SELECT * FROM test1 WHERE id=?",
+    "test1.select": "SELECT * FROM test1 WHERE id=?",
     "test1.insert": "INSERT INTO test1(name) VALUES(:name)",
     "test1.update": "UPDATE test1 SET name=:name WHERE id=:id",
     "test1.delete": "DELETE FROM test1 WHERE id=?"
@@ -99,7 +99,7 @@ session.selectWithRowBounds('test1.selectAll', [], new nobatis.RowBounds(2, 2), 
 
 * select a single row
 <pre><code class="javascript">
-session.selectOne('test1.selectById', [1], function(err, row) {
+session.selectOne('test1.select', [1], function(err, row) {
     ...
 });
 </pre></code>
@@ -130,30 +130,50 @@ How to Create DAO(using NobatisDao)
 
 <pre><code class="javascript">
 var nobatis = require('nobatis');
-var ssf = nobatis.build(ssfConfig);
-var dao = nobatis.createDao(daoConfig);
+var ssf = nobatis.build({
+  ...
+});
+var dao = nobatis.createDao({
+  table: 'test1',
+  primaryKey: 'id',
+  primaryKeyGenerated: true,
+  model: {
+    id: 0,
+    name: ''
+  }
+});
 
 var obj = dao.createNew();
 
-dao.isNew(obj);
+// assert(dao.isNew(obj));
 
 dao.load(pk, function (err, obj) {
+    if (err) {
+      // not found
+    }
     ...
 });
 
-dao.save(obj, function (err, savedObj) {
+dao.save(obj, function (err, affectedRow, insertId) {
     ...
+    // assert(affectedRow === 1);
+    // assert(!dao.isNew(obj));
 });
 
 dao.destroy(pk, function (err, affectedRow) {
+    ...
+    // assert(affectedRow === 1);
 });
 
 dao.all(function (err, rows, numRows) {
     ...
+    // assert(rows.length === numRows);
 });
 
 dao.allWithRowBounds({offset:10, limit:10}, function (err, rows, numRows) {
     ...
+    // assert(rows.length === numRows);
+    // assert(rows.length <= limit);
 });
 </pre></code>
 
