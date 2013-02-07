@@ -125,4 +125,37 @@ session.destroy('test1.delete', [1], function(err, affectedRows) {
 });
 </pre></code>
 
+How to Create DAO(using NobatisDao)
+-----------------------------------
+
+<pre><code class="javascript">
+var nobatis = require('nobatis');
+var ssf = nobatis.build(ssfConfig);
+var dao = nobatis.createDao(daoConfig);
+
+var obj = dao.createNew();
+
+dao.isNew(obj);
+
+dao.load(pk, function (err, obj) {
+    ...
+});
+
+dao.save(obj, function (err, savedObj) {
+    ...
+});
+
+dao.destroy(pk, function (err, affectedRow) {
+});
+
+dao.all(function (err, rows, numRows) {
+    ...
+});
+
+dao.allWithRowBounds({offset:10, limit:10}, function (err, rows, numRows) {
+    ...
+});
+</pre></code>
+
+
 * TBW

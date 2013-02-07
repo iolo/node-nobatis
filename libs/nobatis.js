@@ -71,9 +71,14 @@ function build(config) {
 
 /////////////////////////////////////////////////////////////////////
 
+/////////////////////////////////////////////////////////////////////
+
 module.exports = {
   NobatisError: NobatisError,
   RowBounds: RowBounds,
   SqlSessionFactoryBuilder: SqlSessionFactoryBuilder,
-  build: build
+  build: build,
+  createDao: function (factoryConfig, daoConfig) { // XXX: need cleanup
+    require('./dao').createDao(factory, daoConfig);
+  }
 };
