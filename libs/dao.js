@@ -143,12 +143,56 @@ BaseDao.prototype.all = function (bounds, callback) {
   });
 };
 
+// TODO: ... support association?
+
+// ex.
+// orderDao.belongsTo('customer', 'customerId');
+// orderDao.getCustomer(order, function (err, customer) { ... });
+//BaseDao.prototype.belongsTo = function (foreignModel, foreignKey) {
+//  var methodName = 'get' + _.capitalize(foreignModel);
+//  this[methodName] = function (obj, callback) {
+//    var fk = obj[foreignKey];
+//    getDao(foreignModel).get(fk, callback);
+//  };
+//};
+
+// ex.
+// supplierDao.hasOne('account', 'supplierId');
+// supplierDao.getAccount(supplier, function (err, account) { ... });
+//BaseDao.prototype.hasOne = function (foreignModel, foreignKey) {
+//  var pkColumn = this.primaryKey;
+//  var methodName = 'get' + _.capitalize(foreignModel);
+//  this[methodName] = function (obj, callback) {
+//    var fk = obj[pkColumn];
+//    var foreignMethodName = 'getBy' + _.capitalize(foreignKey);
+//    (getDao(foreignModel)[foreignMethodName])(fk, callback);
+//  };
+//};
+
+// ex.
+// customerDao.hasMany('order', 'customerId');
+// customerDao.listOrders(customer, function (err, orders) { ... });
+//BaseDao.prototype.hasMany = function (foreignModel, foreignKey) {
+//  var pkColumn = this.primaryKey;
+//  var methodName = 'list' + _.capitalize(foreignModel) + 's';
+//  this[methodName] = function (obj, callback) {
+//    var fk = obj[pkColumn];
+//    var foreignMethodName = 'listBy' + _.capitalize(foreignKey);
+//    getDao(foreignModel)[foreignMethodName](fk, callback);
+//  };
+//};
+
+//BaseDao.prototype.hasOne = function (foreignTable, foreignKey) {}
+//BaseDao.prototype.hasMany = function (foreignTable, foreignKey) {}
+//BaseDao.prototype.hasOneThrough = function (foreignTable, foreignKey, junctionTable) {}
+//BaseDao.prototype.hasManyThrough = function (foreignTable, foreignKey, junctionTable) {}
+//BaseDao.prototype.hasAndBelongsToMany = function (foreignTable, foreignKey) {}
+
 // TODO: ... with method cascading? ex. all().filter('id > 123').order('id').limit(10)
 //BaseDao.prototype.find = function (filter, offset, limit, order, callback) { }
 //BaseDao.prototype.filter = function (condition, callback) { }
-//BaseDao.prototype.skip = function (offset, callback) { }
+//BaseDao.prototype.offset = function (offset, callback) { }
 //BaseDao.prototype.limit = function (limit, callback) { }
-//BaseDao.prototype.limit = function ([offset,] limit, callback) { }
 //BaseDao.prototype.order = function (order, callback) { }
 
 /////////////////////////////////////////////////////////////////////
