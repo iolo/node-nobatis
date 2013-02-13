@@ -4,7 +4,13 @@ var
   _ = require('underscore'),
   mariasql = require('mariasql'),
   nobatis = require('./nobatis'),
-  _DEBUG = true;//!!process.env['NOBATIS_DEBUG'];
+  DEF_CONFIG = {
+    host: 'localhost',
+    port: 3306,
+    user: 'root',
+    password: ''
+  },
+  _DEBUG = !!process.env['NOBATIS_DEBUG'];
 
 /////////////////////////////////////////////////////////////////////
 
@@ -116,21 +122,15 @@ MariasqlSession.prototype.destroy = function (query, params, callback) {
 
 /////////////////////////////////////////////////////////////////////
 
-function createMariasqlSession(conn, queryMapper) {
-  return new MariasqlSession(conn, queryMapper);
-}
-
-/////////////////////////////////////////////////////////////////////
-
-function MariasqlSessionFactory(dataSource, queryMapper) {
-  _DEBUG && console.log('*** create mariasql session factory:', dataSource)
-  this.dataSource = dataSource;
+function MariasqlDataSource(config, queryMapper) {
+  _DEBUG && console.log('*** create mariasql data source:', config)
+  this.config = _.defaults(DEF_CONFIG, config);
   this.queryMapper = queryMapper;
 }
 
-MariasqlSessionFactory.prototype.openSession = function () {
+MariasqlDataSource.prototype.openSession = function () {
   var conn = new mariasql();
-  conn.connect(this.dataSource);
+  conn.connect(this.config);
   conn
     .on('connect', function () {
       _DEBUG && console.log('*** mariasql connect');
@@ -144,29 +144,26 @@ MariasqlSessionFactory.prototype.openSession = function () {
   return new MariasqlSession(conn, this.queryMapper);
 };
 
-MariasqlSessionFactory.prototype.withSession = function (callback) {
+MariasqlDataSource.prototype.withSession = function (callback) {
   var session = null;
   try {
     session = this.openSession();
     callback(session);
   } finally {
-    if (session) {
-      session.close();
-    }
+    session && session.close();
   }
 };
 
 /////////////////////////////////////////////////////////////////////
 
-function createSessionFactory(dataSource, queryMapper) {
-  return new MariasqlSessionFactory(dataSource, queryMapper);
+function createDataSource(config, queryMapper) {
+  return new MariasqlDataSource(config, queryMapper);
 }
 
 /////////////////////////////////////////////////////////////////////
 
 module.exports = {
   MariasqlSession: MariasqlSession,
-  createMariasqlSession: createMariasqlSession,
-  MariasqlSessionFactory: MariasqlSessionFactory,
-  createSessionFactory: createSessionFactory
+  MariasqlDataSource: MariasqlDataSource,
+  createDataSource: createDataSource
 };

@@ -20,7 +20,7 @@ var _ = require('underscore'),
       "test1.delete": "DELETE FROM test1 WHERE id=?"
     }
   },
-  factory = nobatis.build(config);
+  ds = nobatis.createDataSource(config);
 
 module.exports = {
   setUp: function (callback) {
@@ -29,13 +29,15 @@ module.exports = {
       'INSERT INTO test1(name) VALUES("one")',
       'INSERT INTO test1(name) VALUES("two")',
       'INSERT INTO test1(name) VALUES("three")'];
-    factory.withSession(function (session) {
+    ds.withSession(function (session) {
       q.all(queries.map(function (query, index) {
           var d = q.defer();
           console.log('setUp#' + index, query);
-          session.execute(query, [], function (result) {
-            console.log(result);
-            d.resolve();
+          session.execute(query, [], function (err, result) {
+            if (err) {
+              return d.reject(err);
+            }
+            return d.resolve(result);
           });
           return d.promise;
         })).done(function () {
@@ -46,13 +48,15 @@ module.exports = {
 
   tearDown: function (callback) {
     var queries = ['DROP TABLE test1'];
-    factory.withSession(function (session) {
+    ds.withSession(function (session) {
       q.all(queries.map(function (query, index) {
           var d = q.defer();
           console.log('tearDown#' + index, query);
-          session.execute(query, [], function (result) {
-            console.log(result);
-            d.resolve();
+          session.execute(query, [], function (err, result) {
+            if (err) {
+              return d.reject(err);
+            }
+            return d.resolve(result);
           });
           return d.promise;
         })).done(function () {
@@ -62,7 +66,7 @@ module.exports = {
   },
 
   testSelect: function (test) {
-    factory.withSession(function (session) {
+    ds.withSession(function (session) {
       session.select('test1.selectAll', [], function (err, rows, numRows) {
         console.log('select', arguments);
         test.ifError(err);
@@ -83,7 +87,7 @@ module.exports = {
   },
 
   testSelectOne: function (test) {
-    factory.withSession(function (session) {
+    ds.withSession(function (session) {
       session.selectOne('test1.select', [1], function (err, row, numRows) {
         console.log('selectOne:', arguments);
         test.ifError(err);
@@ -97,7 +101,7 @@ module.exports = {
   },
 
   testSelectOne_noResult: function (test) {
-    factory.withSession(function (session) {
+    ds.withSession(function (session) {
       session.selectOne('test1.select', [-999], function (err, row, numRows) {
         console.log('selectOne_noResult:', arguments);
         test.ok(err instanceof nobatis.NobatisError);
@@ -107,8 +111,8 @@ module.exports = {
   },
 
   testSelect_bounds: function (test) {
-    factory.withSession(function (session) {
-      session.select('test1.selectAll', [], {offset:1, limit:1}, function (err, rows, numRows) {
+    ds.withSession(function (session) {
+      session.select('test1.selectAll', [], {offset: 1, limit: 1}, function (err, rows, numRows) {
         console.log('select_bounds:', arguments);
         test.ifError(err);
         test.ok(rows);
@@ -122,7 +126,7 @@ module.exports = {
     });
   },
   testInsert: function (test) {
-    factory.withSession(function (session) {
+    ds.withSession(function (session) {
       session.insert('test1.insert', { name: 'foo'}, function (err, affectedRows, insertId) {
         console.log('insert:', arguments);
         test.ifError(err);
@@ -134,7 +138,7 @@ module.exports = {
   },
 
   testUpdate: function (test) {
-    factory.withSession(function (session) {
+    ds.withSession(function (session) {
       session.update('test1.update', { id: 3, name: 'foo'}, function (err, affectedRows) {
         console.log('update:', arguments);
         test.ifError(err);
@@ -145,7 +149,7 @@ module.exports = {
   },
 
   testDestroy: function (test) {
-    factory.withSession(function (session) {
+    ds.withSession(function (session) {
       session.destroy('test1.delete', [3], function (err, affectedRows) {
         console.log('destroy:', arguments);
         test.ifError(err);

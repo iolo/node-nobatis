@@ -3,7 +3,6 @@
 var _ = require('underscore'),
   q = require('q'),
   nobatis = require('../libs/nobatis'),
-  daofactory = require('../libs/dao'),
   config = {
     "dataSource": {
       "driver": "mariasql",
@@ -21,10 +20,12 @@ var _ = require('underscore'),
       "test1.delete": "DELETE FROM test1 WHERE id=?"
     }
   },
-  factory = nobatis.build(config),
+  ds = nobatis.createDataSource(config),
   testDao = nobatis.createDao({
     table: 'test1',
-    defaults: {id: 0, name: 'noname'}
+    defaults: function () {
+      return {id: 0, name: 'noname'};
+    }
   });
 
 module.exports = {
@@ -34,13 +35,15 @@ module.exports = {
       'INSERT INTO test1(name) VALUES("one")',
       'INSERT INTO test1(name) VALUES("two")',
       'INSERT INTO test1(name) VALUES("three")'];
-    factory.withSession(function (session) {
+    ds.withSession(function (session) {
       q.all(queries.map(function (query, index) {
           var d = q.defer();
           console.log('setUp#' + index, query);
-          session.execute(query, [], function (result) {
-            console.log(result);
-            d.resolve();
+          session.execute(query, [], function (err, result) {
+            if (err) {
+              return d.reject(err);
+            }
+            return d.resolve(result);
           });
           return d.promise;
         })).done(function () {
@@ -51,13 +54,15 @@ module.exports = {
 
   tearDown: function (callback) {
     var queries = ['DROP TABLE test1'];
-    factory.withSession(function (session) {
+    ds.withSession(function (session) {
       q.all(queries.map(function (query, index) {
           var d = q.defer();
           console.log('tearDown#' + index, query);
-          session.execute(query, [], function (result) {
-            console.log(result);
-            d.resolve();
+          session.execute(query, [], function (err, result) {
+            if (err) {
+              return d.reject(err);
+            }
+            return d.resolve(result);
           });
           return d.promise;
         })).done(function () {
@@ -68,11 +73,13 @@ module.exports = {
 
   testNew: function (test) {
     var obj1 = testDao.createNew();
+    console.log('*** new 1:', obj1);
     test.ok(testDao.isNew(obj1));
     test.equal(0, obj1.id);
     test.equal('noname', obj1.name);
 
     var obj2 = testDao.createNew({name: 'foo'});
+    console.log('*** new 2:', obj2);
     test.ok(testDao.isNew(obj1));
     test.equal(0, obj2.id);
     test.equal('foo', obj2.name);

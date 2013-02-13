@@ -3,9 +3,9 @@
 var
   _ = require('underscore'),
   q = require('q'),
-  factories = {},
   DEF_DRIVER = 'mariasql',
-  DEF_FACTORY = 'default',
+  DEF_DATA_SOURCE = 'default',
+  dataSources = {},
   _DEBUG = !!process.env['NOBATIS_DEBUG'];
 
 /////////////////////////////////////////////////////////////////////
@@ -16,37 +16,6 @@ function NobatisError(message, cause) {
   this.cause = cause;
 }
 NobatisError.prototype = Error.prototype;
-
-/////////////////////////////////////////////////////////////////////
-
-function RowBounds(offset, limit) {
-  this.offset = offset;
-  this.limit = limit;
-}
-
-function createRowBounds(offset, limit) {
-  return (limit)
-    ? new RowBounds(offset, limit) // both offset and limit
-    : new RowBounds(0, offset); // limit-only
-}
-
-/////////////////////////////////////////////////////////////////////
-
-// TODO: DataSource abstraction
-function DataSource(config) {
-  _DEBUG && console.log('create data source:', config);
-  _.defaults(this, config, {
-    driver: DEF_DRIVER,
-    host: 'localhost',
-    port: 3306,
-    username: 'root',
-    password: ''
-  });
-}
-
-function createDataSource(config) {
-  return new DataSource(config);
-}
 
 /////////////////////////////////////////////////////////////////////
 
@@ -77,65 +46,56 @@ QueryMapper.prototype.get = function (query) {
   return this.queryMap[query] || query;
 };
 
+QueryMapper.prototype.contains = function (query) {
+  return query in this.queryMap;
+};
+
+/////////////////////////////////////////////////////////////////////
+
 function createQueryMapper(queries) {
   return new QueryMapper(queries);
 }
 
-/////////////////////////////////////////////////////////////////////
-
-function SqlSessionFactoryBuilder() {
-}
-
-SqlSessionFactoryBuilder.prototype.build = function (config) {
-  var dataSource = createDataSource(config.dataSource);
-
-  try {
-    _DEBUG && console.log('load nobatis driver module:' + dataSource.driver);
-    var driverModule = require('./nobatis_' + dataSource.driver);
-
-    var queryMapper = createQueryMapper(config.queries);
-    return driverModule.createSessionFactory(dataSource, queryMapper);
-  } catch (e) {
-    _DEBUG && console.error(e);
-    throw new NobatisError('failed to load nobatis driver module:' + dataSource.driver, e);
-  }
-}
-
-/////////////////////////////////////////////////////////////////////
-
-function createSqlSessionFactory(config) {
-  // for convenient, returns default factory as a default
+function createDataSource(config) {
   if (!config) {
-    return factories[DEF_FACTORY];
+    _DEBUG && console.log('use default data source');
+    return dataSources[DEF_DATA_SOURCE];
   }
-  var factoryId = config.id || DEF_FACTORY;
-  var factory = factories[factoryId];
-  if (!factory) {
-    var builder = new SqlSessionFactoryBuilder();
-    factory = builder.build(config);
-    factories[factoryId] = factory;
+  var dataSourceId = config.id || DEF_DATA_SOURCE;
+  var dataSource = dataSources[dataSourceId];
+  if (!dataSource) {
+    _DEBUG && console.log('create data source:', dataSourceId);
+    var dataSourceConfig = config.dataSource || {};
+    var driver = dataSourceConfig.driver || DEF_DRIVER;
+    var dataSourceModule;
+    try {
+      _DEBUG && console.log('load nobatis driver module:', driver);
+      dataSourceModule = require('./nobatis_' + driver);
+    } catch (e) {
+      _DEBUG && console.error(e);
+      throw new NobatisError('failed to load nobatis driver module:' + driver, e);
+    }
+    var queryMapper = createQueryMapper(config.queries || {});
+    dataSources[dataSourceId] = dataSource = dataSourceModule.createDataSource(dataSourceConfig, queryMapper);
   }
-  return factory;
+  _DEBUG && console.log('use data source:', dataSourceId);
+  return dataSource;
 }
 
-/////////////////////////////////////////////////////////////////////
-
-function createDao(daoConfig, factoryConfig) {
-  return require('./dao').createDao(_.defaults(daoConfig || {}, { sqlSessionFactory: createSqlSessionFactory(factoryConfig) }));
+function createDao(dataSource, config) {
+  if (arguments.length === 1) {
+    config = dataSource;
+    dataSource = createDataSource();
+  }
+  return require('./dao').createDao(dataSource, config);
 }
 
 /////////////////////////////////////////////////////////////////////
 
 module.exports = {
   NobatisError: NobatisError,
-  RowBounds: RowBounds,
-  createRowBounds: createRowBounds,
-  createDataSource: createDataSource,
   QueryMapper: QueryMapper,
   createQueryMapper: createQueryMapper,
-  SqlSessionFactoryBuilder: SqlSessionFactoryBuilder,
-  createSqlSessionFactory: createSqlSessionFactory,
-  createDao: createDao,
-  build: createSqlSessionFactory,
-  dao: createDao
+  createDataSource: createDataSource,
+  createDao: createDao
 };

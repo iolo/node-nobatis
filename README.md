@@ -23,7 +23,7 @@ or
 npm install git@github.com:iolo/node-nobatis.git
 ```
 
-How to Get SqlSession(using SqlSessionFactory)
+How to Get DataSource
 ----------------------------------------------
 
 1. prepare configurations:
@@ -51,23 +51,23 @@ var config = {
 <pre><code class="javascript">
 var nobatis = require('nobatis');
 </pre></code>
-4. create ```SqlSessionFactory``` with configutaion:
+4. create ```DataSource``` with configutaion:
 <pre><code class="javascript">
-var ssf = nobatis.build(config);
+var dataSource = nobatis.createDataSource(config);
 </pre></code>
 **or** create one with a configuration file(json module):
 <pre><code class="javascript">
-var ssf = nobatis.build(require('./config'));
+var dataSource = nobatis.createDataSource(require('./config'));
 </pre></code>
 **or** get the default one:
 <pre><code class="javascript">
-var ssf = nobatis.build();
+var dataSource = nobatis.createDataSource();
 </pre></code>
 4. now ```openSession()```:
 <pre><code class="javascript">
 var session = null;
 try {
-  session = ssf.openSession();
+  session = dataSource.openSession();
   // use session here …
 } finally {
   session && session.close();
@@ -75,13 +75,13 @@ try {
 </pre></code>
 *or* ```withSession()```:
 <pre><code class="javascript">
-ssf.withSession(function (session) {
+dataSource.withSession(function (session) {
   // use session here ...
 });
 </pre></code>
 
-How to Execute Queries(using SqlSession)
-----------------------------------------
+How to Execute Queries
+----------------------
 
 * select multiple rows
 <pre><code class="javascript">
@@ -125,32 +125,24 @@ session.destroy('test1.delete', [1], function(err, affectedRows) {
 });
 </pre></code>
 
-How to Create DAO(using NobatisDao)
------------------------------------
+How to Create DAO
+-----------------
 
 <pre><code class="javascript">
 var nobatis = require('nobatis');
-// create dao
-var dao = nobatis.createDao({
+var dataSource = require('nobatis').createDataSource(config);
+var dao = nobatis.createDao(dataSource, {
   table: 'test1',
   primaryKey: 'id',
   primaryKeyGenerated: true,
-  defaults: {
-    id: 0,
-    name: ''
+  defaults: function () {
+    return {
+      id: 0,
+      name: '',
+      created: new Date()
+    };
   }
-}, factoryConfig);
-// or
-var dao = nobatis.createDao()
-  .withSqlSessionFactory(nobatis.build(...))
-  .withTable('test1')
-  .withPrimaryKey('id', true)
-  .withDefaults({
-    id: 0,
-    name: ''
-  });
 });
-
 var obj = dao.createNew();
 
 // assert(dao.isNew(obj));
