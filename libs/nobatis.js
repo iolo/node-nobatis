@@ -24,7 +24,6 @@ function QueryMapper(queries) {
   var queryMap = {};
   // TODO: we need xml? yaml? or something?
   _.each(queries, function (v, k) {
-    console.log(k, '...');
     if (_.isArray(v)) {
       // XXX: support a-query-in-multiple-lines
       queryMap[k] = v.join(' ');
