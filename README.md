@@ -85,43 +85,62 @@ How to Execute Queries
 
 * select multiple rows
 <pre><code class="javascript">
-session.select('test1.selectAll', [], function(err, rows, numRows) {
-    ...
+session.select('test1.selectAll', [])
+.then(function(rows) {
+  ...
+}).fail(function(err) {
+  ...
 });
 </pre></code>
 
 * select rows with row bounds
 <pre><code class="javascript">
-session.select('test1.selectAll', [], {offset:2, limit:2}, function(err, rows, numRows) {
-    ...
+session.select('test1.selectAll', [], {offset:2, limit:2})
+.then(function(rows) {
+  ...
+})
+.fail(function(err) {
+  ...
 });
 </pre></code>
 
 * select a single row
 <pre><code class="javascript">
-session.selectOne('test1.select', [1], function(err, row) {
-    ...
+session.selectOne('test1.select', [1])
+.then(function(row) {
+  ...
+.fail(function(err) {
+  ...
 });
 </pre></code>
 
 * insert new row
 <pre><code class="javascript">
-session.insert('test1.insert', {name:'a'}, function(err, affectedRows, insertId) {
-    ...
+session.insert('test1.insert', {name:'a'})
+.then(function(insertId) {
+  ...
+.fail(function(err) {
+  ...
 });
 </pre></code>
 
 * update row(s)
 <pre><code class="javascript">
-session.update('test1.update', {id:1, name:'a'}, function(err, affectedRows) {
-    ...
+session.update('test1.update', {id:1, name:'a'})
+.then(function(affectedRows) {
+  ...
+.fail(function(err) {
+  ...
 });
 </pre></code>
 
 * delete row(s)
 <pre><code class="javascript">
-session.destroy('test1.delete', [1], function(err, affectedRows) {
-    ...
+session.destroy('test1.delete', [1])
+.then(function(affectedRows) {
+  ...
+.fail(function(err) {
+  ...
 });
 </pre></code>
 
@@ -147,35 +166,42 @@ var obj = dao.createNew();
 
 // assert(dao.isNew(obj));
 
-dao.load(pk, function (err, obj) {
-    if (err) {
-      // not found
-    }
-    ...
+dao.load(pk)
+.then(function (obj) {
+  ...
+.fail(function(err) {
+  ...
 });
 
-dao.save(obj, function (err, affectedRow, insertId) {
-    ...
-    // assert(affectedRow === 1);
-    // assert(!dao.isNew(obj));
+dao.save(obj)
+.then(function (affectedRow-or-insertId) {
+  ...
+.fail(function(err) {
+  ...
 });
 
-dao.destroy(pk, function (err, affectedRow) {
-    ...
-    // assert(affectedRow === 1);
+dao.destroy(pk)
+.then(function (affectedRow) {
+  ...
+.fail(function(err) {
+  ...
 });
 
-dao.all(function (err, rows, numRows) {
-    ...
-    // assert(rows.length === numRows);
+dao.all()
+.then(function (rows) {
+  ...
+.fail(function(err) {
+  ...
 });
 
-dao.all({offset:10, limit:10}, function (err, rows, numRows) {
-    ...
-    // assert(rows.length === numRows);
-    // assert(rows.length <= limit);
+dao.all({offset:10, limit:10})
+.then(function (rows, numRows) {
+  ...
+.fail(function(err) {
+  ...
 });
 </pre></code>
 
+* see also [https://github.com/kriskowal/q]
 
 * TBW
