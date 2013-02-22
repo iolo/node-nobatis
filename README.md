@@ -24,9 +24,10 @@ npm install git@github.com:iolo/node-nobatis.git
 ```
 
 How to Get DataSource
-----------------------------------------------
+---------------------
 
-1. prepare configurations:
+* prepare configurations:
+
 ```javascript
 var config = {
   "dataSource": {
@@ -46,24 +47,35 @@ var config = {
   }
 };
 ```
-**or** you can write configurations to a file(json module).
-3. import nobatis module
+
+* or you can write configurations to a file(json module)
+
+* import nobatis module
+
 ```javascript
 var nobatis = require('nobatis');
 ```
-4. create ```DataSource``` with configutaion:
+
+* create ```DataSource``` with configutaion:
+
 ```javascript
 var dataSource = nobatis.createDataSource(config);
 ```
-**or** create one with a configuration file(json module):
+
+* or create one with a configuration file(json module):
+
 ```javascript
 var dataSource = nobatis.createDataSource(require('./config'));
 ```
-**or** get the default one:
+
+* or get the default one:
+
 ```javascript
 var dataSource = nobatis.createDataSource();
 ```
-4. now ```openSession()```:
+
+* now you can ```openSession()```:
+
 ```javascript
 var session = null;
 try {
@@ -73,94 +85,113 @@ try {
   session && session.close();
 }
 ```
-*or* ```withSession()```:
+
+* or work ```withSession()```:
+
 ```javascript
 dataSource.withSession(function (session) {
   // use session here ...
 });
 ```
-*or* ```withSession()``` and ```q````:
+
+* work ```withSession()``` and ```q````:
+
 ```javascript
 dataSource.withSession(function (session) {
   // use session and return promise ...
-  return session.select(...);
-})
-.then(function (result) {
-  ...
-})
-.fail(function (err) {
-  ...
-});
+  return session.select(...)
+    .then(function (select_result) {
+      return session.insert(...);
+    })
+    .then(function (insert_result) {
+      return session.update(...);
+    })
+    .then(function (update_result) {
+      return session.destroy(...);
+    });
+}).then(function (result) {
+    ...
+  })
+  .fail(function (err) {
+    ...
+  });
 ```
 
 How to Execute Queries
 ----------------------
 
 * select multiple rows
+
 ```javascript
 session.select('test1.selectAll', [])
-.then(function (rows) {
-  ...
-}).fail(function (err) {
-  ...
-});
+  .then(function (rows) {
+    ...
+  }).fail(function (err) {
+    ...
+  });
 ```
 
-* select rows with row bounds
+* select multiple rows with row bounds
+
 ```javascript
 session.select('test1.selectAll', [], {offset:2, limit:2})
-.then(function (rows) {
-  ...
-})
-.fail(function (err) {
-  ...
-});
+  .then(function (rows) {
+    ...
+  })
+  .fail(function (err) {
+    ...
+  });
 ```
 
 * select a single row
+
 ```javascript
 session.selectOne('test1.select', \[1])
-.then(function (row) {
-  ...
-.fail(function (err) {
-  ...
-});
+  .then(function (row) {
+    ...
+  .fail(function (err) {
+    ...
+  });
 ```
 
 * insert new row
+
 ```javascript
 session.insert('test1.insert', {name:'a'})
-.then(function (insertId) {
-  ...
-.fail(function (err) {
-  ...
-});
+  .then(function (insertId) {
+    ...
+  .fail(function (err) {
+    ...
+  });
 ```
 
 * update row(s)
+
 ```javascript
 session.update('test1.update', {id:1, name:'a'})
-.then(function (affectedRows) {
-  ...
-.fail(function (err) {
-  ...
-});
+  .then(function (affectedRows) {
+    ...
+  .fail(function (err) {
+    ...
+  });
 ```
 
 * delete row(s)
+
 ```javascript
 session.destroy('test1.delete', \[1])
-.then(function (affectedRows) {
-  ...
-.fail(function (err) {
-  ...
-});
+  .then(function (affectedRows) {
+    ...
+  .fail(function (err) {
+    ...
+  });
 ```
 
 How to Create DAO
 -----------------
 
 * prepare dao object
+
 ```javascript
 var nobatis = require('nobatis');
 var dataSource = require('nobatis').createDataSource(config);
@@ -196,65 +227,65 @@ dao.isNew(obj);
 * select an object by primary key
 ```javascript
 dao.load(pk)
-.then(function (obj) {
-  ...
-.fail(function (err) {
-  ...
-});
+  .then(function (obj) {
+    ...
+  .fail(function (err) {
+    ...
+  });
 ```
 
 * insert/update an object
 ```javascript
 dao.save(obj)
-.then(function (affectedRow-or-insertId) {
-  ...
-.fail(function (err) {
-  ...
-});
+  .then(function (affectedRow-or-insertId) {
+    ...
+  .fail(function (err) {
+    ...
+  });
 ```
 
 * insert/update an object and reload it
 ```javascript
 dao.save(obj, true)
-.then(function (obj) {
-  ...
-.fail(function (err) {
-  ...
-});
+  .then(function (obj) {
+    ...
+  .fail(function (err) {
+    ...
+  });
 ```
 
 * delete an object by primary key
 ```javascript
 dao.destroy(pk)
-.then(function (success_or_not) {
-  ...
-.fail(function(err) {
-  ...
-});
+  .then(function (success_or_not) {
+    ...
+  .fail(function(err) {
+    ...
+  });
 ```
 
 * select all rows
 ```javascript
 dao.all()
-.then(function (rows) {
-  ...
-.progress(function (row) {
-  ...
-.fail(function(err) {
-  ...
-});
+  .then(function (rows) {
+    ...
+  .progress(function (row) {
+    ...
+  .fail(function(err) {
+    ...
+  });
 ```
 
 * select all rows with bounds
 ```javascript
 dao.all({offset:10, limit:10})
-.then(function (rows, numRows) {
-  ...
-.progress(function (row) {
-  ...
-.fail(function(err) {
-  ...
-});
+  .then(function (rows, numRows) {
+    ...
+  .progress(function (row) {
+    ...
+  .fail(function(err) {
+    ...
+  });
 ```
 
 * see also [https://github.com/kriskowal/q]
