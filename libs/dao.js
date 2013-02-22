@@ -2,6 +2,7 @@
 
 var
   _ = require('underscore'),
+  q = require('q'),
   nobatis = require('./nobatis'),
   DEF_CONFIG = {
     primaryKey: 'id',
@@ -45,72 +46,59 @@ BaseDao.prototype.isNew = function (obj) {
   return !obj[this.primaryKey];
 };
 
-BaseDao.prototype.load = function (pk, callback) {
-  var selectQuery = this.queries.select;
-  this.dataSource.withSession(function (session) {
+BaseDao.prototype.load = function (pk) {
+  var query = this.queries.select;
+  return this.dataSource.withSession(function (session) {
     _DEBUG && console.log('dao load:', pk);
-    session.selectOne(selectQuery, [ pk ], callback);
+    return session.selectOne(query, [ pk ]);
   });
 };
 
-BaseDao.prototype.save = function (obj, callback) {
-  if (this.isNew(obj)) {
-    var self = this, insertQuery = this.queries.insert;
-    this.dataSource.withSession(function (session) {
-      _DEBUG && console.log('dao save insert:', obj);
-      session.insert(insertQuery, obj, function (err, affectedRows, insertId) {
-        _DEBUG && console.log('dao save insert result:', arguments);
-        if (err) {
-          return callback(err);
-        }
-        if (self.primaryKeyGenerated) {
-          obj[self.primaryKey] = insertId;
-        }
-        return callback(null, affectedRows, insertId);
-        // XXX: avoid concurrency issue
-        // 'cause mysql doesn't support "INSERT ... RETRUNING ..."
-        //return self.load(insertId, callback);
-      });
-    });
-  } else {
-    var updateQuery = this.queries.update;
-    this.dataSource.withSession(function (session) {
+BaseDao.prototype.save = function (obj) {
+  var self = this;
+  return this.dataSource.withSession(function (session) {
+    _DEBUG && console.log('dao save insert:', obj);
+    if (self.isNew(obj)) {
+      var query = self.queries.insert;
+      return session.insert(query, obj)
+        .then(function (insertId) {
+          _DEBUG && console.log('dao save insert result:', arguments);
+          if (self.primaryKeyGenerated) {
+            obj[self.primaryKey] = insertId;
+          }
+          return insertId;
+          // XXX: avoid concurrency issue
+          // 'cause mysql doesn't support "INSERT ... RETRUNING ..."
+          //return self.load(insertId);
+        });
+    } else {
+      var query = self.queries.update;
       _DEBUG && console.log('dao save update:', obj);
-      session.update(updateQuery, obj, function (err, affectedRows) {
-        _DEBUG && console.log('dao save update result:', arguments);
-        if (err) {
-          return callback(err);
-        }
-        return callback(null, affectedRows);
-        // XXX: avoid concurrency issue
-        // 'cause mysql doesn't support "INSERT ... RETRUNING ..."
-        //return self.load(obj[self.primaryKey], callback);
-      });
-    });
-  }
-};
-
-BaseDao.prototype.destroy = function (pk, callback) {
-  var deleteQuery = this.queries.delete;
-  this.dataSource.withSession(function (session) {
-    _DEBUG && console.log('dao destroy:', pk);
-    session.destroy(deleteQuery, [ pk ], callback);
+      return session.update(query, obj)
+        .then(function (affectedRows) {
+          _DEBUG && console.log('dao save update result:', arguments);
+          return affectedRows;
+          // XXX: avoid concurrency issue
+          // 'cause mysql doesn't support "INSERT ... RETRUNING ..."
+          //return self.load(obj[self.primaryKey]);
+        });
+    }
   });
 };
 
-BaseDao.prototype.all = function (bounds, callback) {
-  var args = [ this.queries.selectAll, [] ];
-  if (arguments.length === 2) { // with 'bounds' argument
-    _DEBUG && console.log('dao all bounds:', bounds);
-    args.push(bounds);
-    args.push(callback);
-  } else { // with 'bounds' argument
-    _DEBUG && console.log('dao all:');
-    callback = bounds;
-    args.push(callback);
-  }
-  this.dataSource.withSession(function (session) {
-    session.select.apply(session, args);
+BaseDao.prototype.destroy = function (pk) {
+  var query = this.queries.delete;
+  return this.dataSource.withSession(function (session) {
+    _DEBUG && console.log('dao destroy:', pk);
+    return session.destroy(query, [ pk ]);
+  });
+};
+
+BaseDao.prototype.all = function (bounds) {
+  _DEBUG && console.log('dao all:', bounds);
+  var query = this.queries.selectAll;
+  return this.dataSource.withSession(function (session) {
+    return session.select(query, [], bounds);
   });
 };
 
@@ -121,9 +109,9 @@ BaseDao.prototype.all = function (bounds, callback) {
 // orderDao.getCustomer(order, function (err, customer) { ... });
 //BaseDao.prototype.belongsTo = function (foreignModel, foreignKey) {
 //  var methodName = 'get' + _.capitalize(foreignModel);
-//  this[methodName] = function (obj, callback) {
+//  this[methodName] = function (obj) {
 //    var fk = obj[foreignKey];
-//    getDao(foreignModel).get(fk, callback);
+//    return getDao(foreignModel).get(fk);
 //  };
 //};
 
@@ -133,10 +121,10 @@ BaseDao.prototype.all = function (bounds, callback) {
 //BaseDao.prototype.hasOne = function (foreignModel, foreignKey) {
 //  var pkColumn = this.primaryKey;
 //  var methodName = 'get' + _.capitalize(foreignModel);
-//  this[methodName] = function (obj, callback) {
+//  this[methodName] = function (obj) {
 //    var fk = obj[pkColumn];
 //    var foreignMethodName = 'getBy' + _.capitalize(foreignKey);
-//    (getDao(foreignModel)[foreignMethodName])(fk, callback);
+//    return (getDao(foreignModel)[foreignMethodName])(fk);
 //  };
 //};
 
@@ -146,10 +134,10 @@ BaseDao.prototype.all = function (bounds, callback) {
 //BaseDao.prototype.hasMany = function (foreignModel, foreignKey) {
 //  var pkColumn = this.primaryKey;
 //  var methodName = 'list' + _.capitalize(foreignModel) + 's';
-//  this[methodName] = function (obj, callback) {
+//  this[methodName] = function (obj) {
 //    var fk = obj[pkColumn];
 //    var foreignMethodName = 'listBy' + _.capitalize(foreignKey);
-//    getDao(foreignModel)[foreignMethodName](fk, callback);
+//    return getDao(foreignModel)[foreignMethodName](fk);
 //  };
 //};
 
@@ -160,11 +148,11 @@ BaseDao.prototype.all = function (bounds, callback) {
 //BaseDao.prototype.hasAndBelongsToMany = function (foreignTable, foreignKey) {}
 
 // TODO: ... with method cascading? ex. all().filter('id > 123').order('id').limit(10)
-//BaseDao.prototype.find = function (filter, offset, limit, order, callback) { }
-//BaseDao.prototype.filter = function (condition, callback) { }
-//BaseDao.prototype.offset = function (offset, callback) { }
-//BaseDao.prototype.limit = function (limit, callback) { }
-//BaseDao.prototype.order = function (order, callback) { }
+//BaseDao.prototype.find = function (filter, offset, limit, order) { }
+//BaseDao.prototype.filter = function (condition) { }
+//BaseDao.prototype.offset = function (offset) { }
+//BaseDao.prototype.limit = function (limit) { }
+//BaseDao.prototype.order = function (order) { }
 
 /////////////////////////////////////////////////////////////////////
 

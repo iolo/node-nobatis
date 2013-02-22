@@ -30,47 +30,42 @@ module.exports = {
       'INSERT INTO test1(name) VALUES("two")',
       'INSERT INTO test1(name) VALUES("three")'];
     ds.withSession(function (session) {
-      q.all(queries.map(function (query, index) {
-          var d = q.defer();
-          console.log('setUp#' + index, query);
-          session.execute(query, [], function (err, result) {
-            if (err) {
-              return d.reject(err);
-            }
-            return d.resolve(result);
-          });
-          return d.promise;
-        })).done(function () {
-          callback();
-        });
-    });
+      return q.all(queries.map(function (query, index) {
+        console.log('setUp#' + index, query);
+        return session.execute(query, []);
+      }));
+    }).then(function() {
+      console.log('**** setUp ok', arguments);
+      callback();
+    })
+    .fail(function (err) {
+      console.error(err);
+    }).done();
   },
 
   tearDown: function (callback) {
     var queries = ['DROP TABLE test1'];
     ds.withSession(function (session) {
-      q.all(queries.map(function (query, index) {
-          var d = q.defer();
-          console.log('tearDown#' + index, query);
-          session.execute(query, [], function (err, result) {
-            if (err) {
-              return d.reject(err);
-            }
-            return d.resolve(result);
-          });
-          return d.promise;
-        })).done(function () {
-          callback()
-        });
-    });
+      return q.all(queries.map(function (query, index) {
+        console.log('tearDown#' + index, query);
+        return session.execute(query, []);
+      }));
+    }).then(function() {
+        console.log('**** tearDown ok', arguments);
+        callback();
+      })
+    .fail(function (err) {
+      console.error(err);
+    }).done();
   },
 
   testSelect: function (test) {
+    console.log('***************testSelect');
     ds.withSession(function (session) {
-      session.select('test1.selectAll', [], function (err, rows, numRows) {
+      return session.select('test1.selectAll', []);
+    })
+      .then(function (rows) {
         console.log('select', arguments);
-        test.ifError(err);
-        console.log(rows);
         test.ok(rows);
         test.ok(_.isArray(rows));
         test.equal(3, rows.length)
@@ -80,82 +75,93 @@ module.exports = {
         test.equal("two", rows[1].name)
         test.equal(3, rows[2].id)
         test.equal("three", rows[2].name)
-        test.equal(rows.length, numRows);
-        test.done();
-      });
-    });
+      }).fail(function (err) {
+        test.ifError(err);
+      })
+      .fin(test.done);
   },
 
   testSelectOne: function (test) {
     ds.withSession(function (session) {
-      session.selectOne('test1.select', [1], function (err, row, numRows) {
-        console.log('selectOne:', arguments);
-        test.ifError(err);
-        test.ok(row);
-        test.equal(1, row.id)
-        test.equal("one", row.name)
-        test.equal(1, numRows);
-        test.done();
-      });
-    });
+      return session.selectOne('test1.select', [1])
+        .then(function (row) {
+          console.log('selectOne:', arguments);
+          test.ok(_.isObject(row));
+          test.equal(1, row.id)
+          test.equal("one", row.name)
+        })
+        .fail(function (err) {
+          test.ifError(err);
+        });
+    }).fin(test.done);
   },
 
   testSelectOne_noResult: function (test) {
     ds.withSession(function (session) {
-      session.selectOne('test1.select', [-999], function (err, row, numRows) {
-        console.log('selectOne_noResult:', arguments);
-        test.ok(err instanceof nobatis.NobatisError);
-        test.done();
-      });
-    });
+      return session.selectOne('test1.select', [-999])
+        .then(function (row) {
+          console.log('selectOne_noResult:', arguments);
+          test.ok(false);
+        })
+        .fail(function (err) {
+          test.ok(err instanceof nobatis.NobatisError);
+        });
+    }).fin(test.done);
   },
 
   testSelect_bounds: function (test) {
     ds.withSession(function (session) {
-      session.select('test1.selectAll', [], {offset: 1, limit: 1}, function (err, rows, numRows) {
-        console.log('select_bounds:', arguments);
-        test.ifError(err);
-        test.ok(rows);
-        test.ok(_.isArray(rows));
-        test.equal(1, rows.length)
-        test.equal(2, rows[0].id)
-        test.equal("two", rows[0].name)
-        test.equal(rows.length, numRows);
-        test.done();
-      });
-    });
+      return session.select('test1.selectAll', [], {offset: 1, limit: 1})
+        .then(function (rows) {
+          console.log('select_bounds:', arguments);
+          test.ok(rows);
+          test.ok(_.isArray(rows));
+          test.equal(1, rows.length)
+          test.equal(2, rows[0].id)
+          test.equal("two", rows[0].name)
+        })
+        .fail(function (err) {
+          test.ifError(err);
+        });
+    }).fin(test.done);
   },
   testInsert: function (test) {
     ds.withSession(function (session) {
-      session.insert('test1.insert', { name: 'foo'}, function (err, affectedRows, insertId) {
-        console.log('insert:', arguments);
-        test.ifError(err);
-        test.equal(1, affectedRows);
-        test.ok(insertId > 3)
-        test.done();
-      });
-    });
+      return session.insert('test1.insert', { name: 'foo'})
+        .then(function (insertId) {
+          console.log('insert:', arguments);
+          test.ok(insertId > 3)
+        })
+        .fail(function (err) {
+          test.ifError(err);
+        });
+    }).fin(test.done);
   },
 
   testUpdate: function (test) {
     ds.withSession(function (session) {
-      session.update('test1.update', { id: 3, name: 'foo'}, function (err, affectedRows) {
-        console.log('update:', arguments);
-        test.ifError(err);
-        test.equal(1, affectedRows);
-        test.done();
-      });
-    });
+      return session.update('test1.update', { id: 3, name: 'foo'})
+        .then(function (affectedRows) {
+          console.log('update:', arguments);
+          test.equal(1, affectedRows);
+        })
+        .fail(function (err) {
+          test.ifError(err);
+        })
+    }).fin(test.done);
   },
 
   testDestroy: function (test) {
     ds.withSession(function (session) {
-      session.destroy('test1.delete', [3], function (err, affectedRows) {
-        console.log('destroy:', arguments);
-        test.ifError(err);
-        test.equal(1, affectedRows);
-        test.done();
-      });
-    });
+      return session.destroy('test1.delete', [3])
+        .then(function (affectedRows) {
+          console.log('destroy:', arguments);
+          test.equal(1, affectedRows);
+          test.done();
+        })
+        .fail(function (err) {
+          test.ifError(err);
+        });
+    }).fin(test.done);
   }
 };

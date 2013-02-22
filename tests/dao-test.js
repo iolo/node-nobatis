@@ -36,39 +36,33 @@ module.exports = {
       'INSERT INTO test1(name) VALUES("two")',
       'INSERT INTO test1(name) VALUES("three")'];
     ds.withSession(function (session) {
-      q.all(queries.map(function (query, index) {
-          var d = q.defer();
-          console.log('setUp#' + index, query);
-          session.execute(query, [], function (err, result) {
-            if (err) {
-              return d.reject(err);
-            }
-            return d.resolve(result);
-          });
-          return d.promise;
-        })).done(function () {
-          callback();
-        });
-    });
+      return q.all(queries.map(function (query, index) {
+        console.log('setUp#' + index, query);
+        return session.execute(query, []);
+      }));
+    }).then(function () {
+        console.log('**** setUp ok', arguments);
+        callback();
+      })
+      .fail(function (err) {
+        console.error(err);
+      }).done();
   },
 
   tearDown: function (callback) {
     var queries = ['DROP TABLE test1'];
     ds.withSession(function (session) {
-      q.all(queries.map(function (query, index) {
-          var d = q.defer();
-          console.log('tearDown#' + index, query);
-          session.execute(query, [], function (err, result) {
-            if (err) {
-              return d.reject(err);
-            }
-            return d.resolve(result);
-          });
-          return d.promise;
-        })).done(function () {
-          callback()
-        });
-    });
+      return q.all(queries.map(function (query, index) {
+        console.log('tearDown#' + index, query);
+        return session.execute(query, []);
+      }));
+    }).then(function () {
+        console.log('**** tearDown ok', arguments);
+        callback();
+      })
+      .fail(function (err) {
+        console.error(err);
+      }).done();
   },
 
   testNew: function (test) {
@@ -88,77 +82,85 @@ module.exports = {
   },
 
   testLoad: function (test) {
-    testDao.load(1, function (err, row) {
-      console.log('*** load 1:', arguments);
-      test.ifError(err);
+    testDao.load(1)
+      .then(function (row) {
+        console.log('*** load 1:', arguments);
 
-      test.ok(row);
-      test.ok(!testDao.isNew(row));
-      test.equal('one', row.name);
+        test.ok(row);
+        test.ok(!testDao.isNew(row));
+        test.equal('one', row.name);
 
-      testDao.load(2, function (err, row) {
+        return testDao.load(2);
+      })
+      .then(function (row) {
         console.log('*** load 2:', arguments);
-        test.ifError(err);
 
         test.ok(row);
         test.ok(!testDao.isNew(row));
         test.equal('two', row.name);
 
-        testDao.load(3, function (err, row) {
-          console.log('*** load 3:', arguments);
-          test.ifError(err);
+        return testDao.load(3);
+      })
+      .then(function (row) {
+        console.log('*** load 3:', arguments);
 
-          test.ok(row);
-          test.ok(!testDao.isNew(row));
-          test.equal('three', row.name);
-
-          test.done();
-        });
-      });
-    });
+        test.ok(row);
+        test.ok(!testDao.isNew(row));
+        test.equal('three', row.name);
+      }).fail(function (err) {
+        test.ifError(err);
+      }).fin(test.done);
   },
 
   testLoad_noResult: function (test) {
-    testDao.load(-999, function (err, row) {
-      console.log('*** load noresult:', arguments);
-      test.ok(err);
-      test.ok(err instanceof nobatis.NobatisError);
-      test.done();
-    });
+    testDao.load(-999)
+      .then(function (row) {
+        console.log('*** load noresult:', arguments);
+        test.ok(false);
+      })
+      .fail(function (err) {
+        test.ok(err);
+        test.ok(err instanceof nobatis.NobatisError);
+      })
+      .fin(test.done);
   },
 
   testAll: function (test) {
-    testDao.all(function (err, rows, numRows) {
-      console.log('*** all:', arguments);
-      test.ifError(err);
+    testDao.all()
+      .then(function (rows) {
+        console.log('*** all:', arguments);
 
-      test.ok(rows);
-      test.ok(rows instanceof Array);
-      test.equal(3, rows.length);
-      test.equal(1, rows[0].id)
-      test.equal("one", rows[0].name)
-      test.equal(2, rows[1].id)
-      test.equal("two", rows[1].name)
-      test.equal(3, rows[2].id)
-      test.equal("three", rows[2].name)
-      test.equal(rows.length, numRows);
-      test.done();
-    });
+        test.ok(rows);
+        test.ok(rows instanceof Array);
+        test.equal(3, rows.length);
+        test.equal(1, rows[0].id)
+        test.equal("one", rows[0].name)
+        test.equal(2, rows[1].id)
+        test.equal("two", rows[1].name)
+        test.equal(3, rows[2].id)
+        test.equal("three", rows[2].name)
+      })
+      .fail(function (err) {
+        test.ifError(err);
+      })
+      .fin(test.done);
   },
 
   testAll_bounds: function (test) {
-    testDao.all({offset: 1, limit: 1}, function (err, rows, numRows) {
-      console.log('*** all_bounds:', arguments);
-      test.ifError(err);
+    testDao.all({offset: 1, limit: 1})
+      .then(function (rows) {
+        console.log('*** all_bounds:', arguments);
 
-      test.ok(rows);
-      test.ok(rows instanceof Array);
-      test.equal(1, rows.length);
-      test.equal(2, rows[0].id)
-      test.equal("two", rows[0].name)
-      test.equal(rows.length, numRows);
-      test.done();
-    });
+        test.ok(rows);
+        test.ok(rows instanceof Array);
+        test.equal(1, rows.length);
+        test.equal(2, rows[0].id)
+        test.equal("two", rows[0].name)
+      })
+      .fail(function (err) {
+        test.ifError(err);
+      })
+      .fin(test.done);
   },
 
   testSave_insert: function (test) {
@@ -167,59 +169,65 @@ module.exports = {
     test.equal('foo', obj.name);
     console.log('*** create new to insert: ', obj);
 
-    testDao.save(obj, function (err, affectedRows, insertId) {
-      console.log('*** save insert:', arguments);
+    testDao.save(obj)
+      .then(function (insertId) {
+        console.log('*** save insert:', arguments);
 
-      test.ifError(err);
+        test.ok(insertId > 3);
 
-      test.equal(1, affectedRows);
-      test.ok(insertId);
-
-      testDao.load(insertId, function (err, reloadedObj) {
+        return testDao.load(insertId);
+      })
+      .then(function (reloadedObj) {
         console.log('*** load after insert:', arguments);
-        test.ifError(err);
 
         test.equal('foo', reloadedObj.name);
-        test.done();
-      });
-    });
+      })
+      .fail(function (err) {
+        test.ifError(err);
+      })
+      .fin(test.done);
   },
 
   testSave_update: function (test) {
-    testDao.load(3, function (err, obj) {
-      console.log('*** load 3 to update:', obj);
+    testDao.load(3)
+      .then(function (obj) {
+        console.log('*** load 3 to update:', obj);
 
-      test.ifError(err);
+        obj.name = 'foo';
 
-      obj.name = 'foo';
-      testDao.save(obj, function (err, affectedRow) {
+        return testDao.save(obj);
+      }).then(function (affectedRow) {
         console.log('*** save update:', arguments);
+
+        return testDao.load(3);
+      }).then(function (reloadedObj) {
+        console.log('*** load after update:', reloadedObj);
+
+        test.equal('foo', reloadedObj.name);
+        test.done();
+      })
+      .fail(function (err) {
         test.ifError(err);
-
-        testDao.load(3, function (err, reloadedObj) {
-          console.log('*** load after update:', reloadedObj);
-          test.ifError(err);
-
-          test.equal('foo', reloadedObj.name);
-          test.done();
-        });
-      });
-    });
+      })
+      .fin(test.done);
   },
 
   testDestroy: function (test) {
-    testDao.destroy(3, function (err, affectedRows) {
-      console.log('*** destroy 3:', arguments);
-      test.ifError(err);
-      test.equal(1, affectedRows);
+    testDao.destroy(3)
+      .then(function (affectedRows) {
+        console.log('*** destroy 3:', arguments);
+        test.equal(1, affectedRows);
 
-      testDao.load(3, function (err, reloadedObj) {
+        return testDao.load(3);
+      })
+      .then(function (reloadedObj) {
         console.log('*** load 3 after destroy:', arguments);
+        test.ok(false);
+      })
+      .fail(function (err) {
         test.ok(err);
         test.ok(err instanceof nobatis.NobatisError);
-        test.done();
-      });
-
-    });
+      })
+      .fin(test.done);
   }
 };

@@ -2,6 +2,7 @@
 
 var
   _ = require('underscore'),
+  q = require('q'),
   mariasql = require('mariasql'),
   nobatis = require('./nobatis'),
   DEF_CONFIG = {
@@ -19,35 +20,47 @@ function MariasqlSession(conn, queryMapper) {
   this.queryMapper = queryMapper;
 }
 
-MariasqlSession.prototype.execute = function (query, params, callback) {
-  var resultError, resultRows, resultInfo, preparedQuery;
-  preparedQuery = this.conn.prepare(query);
+MariasqlSession.prototype.execute = function (query, params) {
+  var d = q.defer();
+  var resultRows = [], resultInfo = {};
+  console.log('********* execute:', query, params);
+  var preparedQuery = this.conn.prepare(query);
   this.conn.query(preparedQuery(params))
     .on('result', function (result) {
-      //_DEBUG && console.log('*** mariasql query result:', result);
+      //_DEBUG && console.log('*** mariasql results result:', result);
       // TODO: avoid OOM for large result set
-      resultRows = [];
       result
         .on('row', function (row) {
-          _DEBUG && console.log('*** mariasql query result row:', row);
+          _DEBUG && console.log('*** mariasql query row:', row);
           resultRows.push(row);
-        })
-        .on('error', function (err) {
-          _DEBUG && console.log('*** mariasql query result error:', err);
-          resultError = err;
-        })
-        .on('end', function (info) {
-          _DEBUG && console.log('*** mariasql query result end:', info);
-          resultInfo = info;
+          d.notify(row);
         })
         .on('abort', function () {
-          _DEBUG && console.log('*** mariasql query result abort');
+          _DEBUG && console.log('*** mariasql query abort');
+          d.reject('abort');
+        })
+        .on('error', function (err) {
+          _DEBUG && console.log('*** mariasql query error:', err);
+          d.reject(err);
+        })
+        .on('end', function (info) {
+          _DEBUG && console.log('*** mariasql query end:', info);
+          resultInfo = info;
         });
     })
+    .on('abort', function () {
+      _DEBUG && console.log('*** mariasql results abort');
+      d.reject('abort');
+    })
+    .on('error', function (err) {
+      _DEBUG && console.log('*** mariasql results error:', err);
+      d.reject(err);
+    })
     .on('end', function () {
-      _DEBUG && console.log('*** mariasql query end');
-      callback(resultError, resultRows, resultInfo);
+      _DEBUG && console.log('*** mariasql results end');
+      d.resolve({rows:resultRows,info:resultInfo});
     });
+  return d.promise;
 };
 
 MariasqlSession.prototype.close = function () {
@@ -60,64 +73,56 @@ MariasqlSession.prototype.commit = function () {
 MariasqlSession.prototype.rollback = function () {
 };
 
-MariasqlSession.prototype.select = function (query, params, bounds, callback) {
+MariasqlSession.prototype.select = function (query, params, bounds) {
   query = this.queryMapper.get(query);
-  if (arguments.length === 4) { // with 'bounds' argument
+  if (bounds) {
     query += ' LIMIT ' + bounds.offset + ',' + bounds.limit;
-  } else { // without 'bounds' argument
-    callback = arguments[2];
   }
-  this.execute(query, params, function (err, rows, info) {
-    console.log('select:', arguments);
-    if (err) {
-      return callback(err);
-    }
-    return callback(null, rows, info.numRows);
-  });
+  console.log('**** select', query, params);
+  return this.execute(query, params)
+    .then(function (result) {
+      _DEBUG && console.log('select result:', arguments);
+      return result.rows;
+    });
 };
 
-MariasqlSession.prototype.selectOne = function (query, params, callback) {
+MariasqlSession.prototype.selectOne = function (query, params) {
   query = this.queryMapper.get(query);
-  this.execute(query, params, function (err, rows, info) {
-    console.log('select:', arguments);
-    if (err) {
-      return callback(err);
-    }
-    if (rows.length !== 1) {
-      return callback(new nobatis.NobatisError('not a single row'));
-    }
-    return callback(null, rows[0], info.numRows);
-  });
+  return this.execute(query, params)
+    .then(function (result) {
+      _DEBUG && console.log('selectOne result:', arguments);
+      if (result.rows.length !== 1) {
+        throw new nobatis.NobatisError('not a single row');
+      }
+      return result.rows[0];
+    });
 };
 
-MariasqlSession.prototype.insert = function (query, params, callback) {
+MariasqlSession.prototype.insert = function (query, params) {
   query = this.queryMapper.get(query);
-  this.execute(query, params, function (err, rows, info) {
-    if (err) {
-      return callback(err);
-    }
-    return callback(null, info.affectedRows, info.insertId);
-  });
+  return this.execute(query, params)
+    .then(function (result) {
+      _DEBUG && console.log('insert result:', arguments);
+      return result.info.insertId;
+    });
 };
 
-MariasqlSession.prototype.update = function (query, params, callback) {
+MariasqlSession.prototype.update = function (query, params) {
   query = this.queryMapper.get(query);
-  this.execute(query, params, function (err, rows, info) {
-    if (err) {
-      return callback(err);
-    }
-    return callback(null, info.affectedRows);
-  });
+  return this.execute(query, params)
+    .then(function (result) {
+      _DEBUG && console.log('update result:', arguments);
+      return result.info.affectedRows;
+    });
 };
 
-MariasqlSession.prototype.destroy = function (query, params, callback) {
+MariasqlSession.prototype.destroy = function (query, params) {
   query = this.queryMapper.get(query);
-  this.execute(query, params, function (err, rows, info) {
-    if (err) {
-      return callback(err);
-    }
-    return callback(null, info.affectedRows);
-  });
+  return this.execute(query, params)
+    .then(function (result) {
+      _DEBUG && console.log('destroy result:', arguments);
+      return result.info.affectedRows;
+    });
 };
 
 /////////////////////////////////////////////////////////////////////
@@ -145,13 +150,13 @@ MariasqlDataSource.prototype.openSession = function () {
 };
 
 MariasqlDataSource.prototype.withSession = function (callback) {
-  var session = null;
-  try {
-    session = this.openSession();
-    callback(session);
-  } finally {
+  var session = this.openSession();
+  var p = q.fcall(callback, session);
+  console.log('*** promise:', p);
+  return p.fin(function () {
+    console.log('*** fin: close session');
     session && session.close();
-  }
+  });
 };
 
 /////////////////////////////////////////////////////////////////////
