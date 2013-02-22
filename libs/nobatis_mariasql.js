@@ -23,7 +23,6 @@ function MariasqlSession(conn, queryMapper) {
 MariasqlSession.prototype.execute = function (query, params) {
   var d = q.defer();
   var resultRows = [], resultInfo = {};
-  console.log('********* execute:', query, params);
   var preparedQuery = this.conn.prepare(query);
   this.conn.query(preparedQuery(params))
     .on('result', function (result) {
@@ -58,7 +57,7 @@ MariasqlSession.prototype.execute = function (query, params) {
     })
     .on('end', function () {
       _DEBUG && console.log('*** mariasql results end');
-      d.resolve({rows:resultRows,info:resultInfo});
+      d.resolve({rows: resultRows, info: resultInfo});
     });
   return d.promise;
 };
@@ -78,7 +77,6 @@ MariasqlSession.prototype.select = function (query, params, bounds) {
   if (bounds) {
     query += ' LIMIT ' + bounds.offset + ',' + bounds.limit;
   }
-  console.log('**** select', query, params);
   return this.execute(query, params)
     .then(function (result) {
       _DEBUG && console.log('select result:', arguments);
@@ -151,12 +149,10 @@ MariasqlDataSource.prototype.openSession = function () {
 
 MariasqlDataSource.prototype.withSession = function (callback) {
   var session = this.openSession();
-  var p = q.fcall(callback, session);
-  console.log('*** promise:', p);
-  return p.fin(function () {
-    console.log('*** fin: close session');
-    session && session.close();
-  });
+  return q.fcall(callback, session)
+    .fin(function () {
+      session && session.close();
+    });
 };
 
 /////////////////////////////////////////////////////////////////////
