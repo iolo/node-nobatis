@@ -106,7 +106,7 @@ session.select('test1.selectAll', [], {offset:2, limit:2})
 
 * select a single row
 <pre><code class="javascript">
-session.selectOne('test1.select', [1])
+session.selectOne('test1.select', \[1])
 .then(function(row) {
   ...
 .fail(function(err) {
@@ -136,7 +136,7 @@ session.update('test1.update', {id:1, name:'a'})
 
 * delete row(s)
 <pre><code class="javascript">
-session.destroy('test1.delete', [1])
+session.destroy('test1.delete', \[1])
 .then(function(affectedRows) {
   ...
 .fail(function(err) {
@@ -147,6 +147,7 @@ session.destroy('test1.delete', [1])
 How to Create DAO
 -----------------
 
+* prepare dao object
 <pre><code class="javascript">
 var nobatis = require('nobatis');
 var dataSource = require('nobatis').createDataSource(config);
@@ -162,40 +163,81 @@ var dao = nobatis.createDao(dataSource, {
     };
   }
 });
+</pre></code>
+
+* create new object with default attributes
+<pre><code class="javascript">
 var obj = dao.createNew();
+</pre></code>
 
-// assert(dao.isNew(obj));
+* create new object with custom attributes
+<pre><code class="javascript">
+var obj = dao.createNew({name:'foo'});
+</pre></code>
 
+* check the object is saved or not
+<pre><code class="javascript">
+dao.isNew(obj);
+</pre></code>
+
+* select an object by primary key
+<pre><code class="javascript">
 dao.load(pk)
 .then(function (obj) {
   ...
 .fail(function(err) {
   ...
 });
+</pre></code>
 
+* insert/update an object
+<pre><code class="javascript">
 dao.save(obj)
 .then(function (affectedRow-or-insertId) {
   ...
 .fail(function(err) {
   ...
 });
+</pre></code>
 
-dao.destroy(pk)
-.then(function (affectedRow) {
+* insert/update an object and reload it
+<pre><code class="javascript">
+dao.save(obj, true)
+.then(function (obj) {
   ...
 .fail(function(err) {
   ...
 });
+</pre></code>
 
+* delete an object by primary key
+<pre><code class="javascript">
+dao.destroy(pk)
+.then(function (success_or_not) {
+  ...
+.fail(function(err) {
+  ...
+});
+</pre></code>
+
+* select all rows
+<pre><code class="javascript">
 dao.all()
 .then(function (rows) {
   ...
+.progress(function (row) {
+  ...
 .fail(function(err) {
   ...
 });
+</pre></code>
 
+* select all rows with bounds
+<pre><code class="javascript">
 dao.all({offset:10, limit:10})
 .then(function (rows, numRows) {
+  ...
+.progress(function (row) {
   ...
 .fail(function(err) {
   ...

@@ -43,7 +43,8 @@ BaseDao.prototype.createNew = function (obj) {
 
 BaseDao.prototype.isNew = function (obj) {
   // XXX: undefined, null, 0, false, ...
-  return !obj[this.primaryKey];
+  var primaryKey = obj[this.primaryKey];
+  return !primaryKey || primaryKey === '0';
 };
 
 BaseDao.prototype.load = function (pk) {
@@ -54,22 +55,28 @@ BaseDao.prototype.load = function (pk) {
   });
 };
 
-BaseDao.prototype.save = function (obj) {
+BaseDao.prototype.save = function (obj, reload) {
   var self = this;
   return this.dataSource.withSession(function (session) {
-    _DEBUG && console.log('dao save insert:', obj);
     if (self.isNew(obj)) {
       var query = self.queries.insert;
+      _DEBUG && console.log('dao save insert:', obj);
       return session.insert(query, obj)
         .then(function (insertId) {
           _DEBUG && console.log('dao save insert result:', arguments);
           if (self.primaryKeyGenerated) {
             obj[self.primaryKey] = insertId;
           }
-          return insertId;
-          // XXX: avoid concurrency issue
-          // 'cause mysql doesn't support "INSERT ... RETRUNING ..."
-          //return self.load(insertId);
+          if (!insertId) {
+            throw new nobatis.NobatisError('save with insert error');
+          }
+          if (reload) {
+            // XXX: avoid concurrency issue
+            // 'cause mysql doesn't support "INSERT ... RETRUNING ..."
+            return self.load(insertId);
+          } else {
+            return insertId;
+          }
         });
     } else {
       var query = self.queries.update;
@@ -77,10 +84,16 @@ BaseDao.prototype.save = function (obj) {
       return session.update(query, obj)
         .then(function (affectedRows) {
           _DEBUG && console.log('dao save update result:', arguments);
-          return affectedRows;
-          // XXX: avoid concurrency issue
-          // 'cause mysql doesn't support "INSERT ... RETRUNING ..."
-          //return self.load(obj[self.primaryKey]);
+          if (affectedRows !== 1) {
+            throw new nobatis.NobatisError('save with update error');
+          }
+          if (reload) {
+            // XXX: avoid concurrency issue
+            // 'cause mysql doesn't support "INSERT ... RETRUNING ..."
+            return self.load(obj[self.primaryKey]);
+          } else {
+            return true;
+          }
         });
     }
   });
@@ -90,7 +103,14 @@ BaseDao.prototype.destroy = function (pk) {
   var query = this.queries.delete;
   return this.dataSource.withSession(function (session) {
     _DEBUG && console.log('dao destroy:', pk);
-    return session.destroy(query, [ pk ]);
+    return session.destroy(query, [ pk ])
+      .then(function (affectedRows) {
+        _DEBUG && console.log('dao destory result:', arguments);
+        if (affectedRows !== 1) {
+          throw new nobatis.NobatisError('destroy error');
+        }
+        return true;
+      });
   });
 };
 

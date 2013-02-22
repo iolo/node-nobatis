@@ -170,17 +170,12 @@ module.exports = {
     console.log('*** create new to insert: ', obj);
 
     testDao.save(obj)
-      .then(function (insertId) {
+      .then(function (savedObj) {
         console.log('*** save insert:', arguments);
 
-        test.ok(insertId > 3);
-
-        return testDao.load(insertId);
-      })
-      .then(function (reloadedObj) {
-        console.log('*** load after insert:', arguments);
-
-        test.equal('foo', reloadedObj.name);
+        test.ok(savedObj);
+        test.ok(!testDao.isNew(savedObj));
+        test.equal('foo', obj.name);
       })
       .fail(function (err) {
         test.ifError(err);
@@ -193,18 +188,16 @@ module.exports = {
       .then(function (obj) {
         console.log('*** load 3 to update:', obj);
 
+        test.ok(!testDao.isNew(obj));
         obj.name = 'foo';
 
         return testDao.save(obj);
-      }).then(function (affectedRow) {
-        console.log('*** save update:', arguments);
+      })
+      .then(function (savedObj) {
+        console.log('*** save update 3:', arguments);
 
-        return testDao.load(3);
-      }).then(function (reloadedObj) {
-        console.log('*** load after update:', reloadedObj);
-
-        test.equal('foo', reloadedObj.name);
-        test.done();
+        test.ok(!testDao.isNew(savedObj));
+        test.equal('foo', savedObj.name);
       })
       .fail(function (err) {
         test.ifError(err);
@@ -212,16 +205,49 @@ module.exports = {
       .fin(test.done);
   },
 
+  testSave_update_notExist: function (test) {
+    var obj = testDao.createNew({id:-999, name: 'foo'});
+    test.ok(!testDao.isNew(obj));
+    test.equal(-999, obj.id);
+    test.equal('foo', obj.name);
+
+    testDao.save(obj)
+      .then(function (savedObj) {
+        console.log('*** save update -999:', arguments);
+
+        test.ok(false);
+      })
+      .fail(function (err) {
+        test.ok(err);
+        test.ok(err instanceof nobatis.NobatisError);
+      })
+      .fin(test.done);
+  },
+
   testDestroy: function (test) {
     testDao.destroy(3)
-      .then(function (affectedRows) {
+      .then(function (result) {
         console.log('*** destroy 3:', arguments);
-        test.equal(1, affectedRows);
+        test.ok(result);
 
         return testDao.load(3);
       })
       .then(function (reloadedObj) {
         console.log('*** load 3 after destroy:', arguments);
+        test.ok(false);
+      })
+      .fail(function (err) {
+        test.ok(err);
+        test.ok(err instanceof nobatis.NobatisError);
+      })
+      .fin(test.done);
+  },
+
+  testDestroy_notExist: function (test) {
+    testDao.destroy(-999)
+      .then(function (result) {
+        console.log('*** destroy -999:', arguments);
+
         test.ok(false);
       })
       .fail(function (err) {

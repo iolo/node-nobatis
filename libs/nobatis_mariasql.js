@@ -24,6 +24,9 @@ MariasqlSession.prototype.execute = function (query, params) {
   var d = q.defer();
   var resultRows = [], resultInfo = {};
   var preparedQuery = this.conn.prepare(query);
+  if (!_.isObject(params)) {
+    params = [ params ];
+  }
   this.conn.query(preparedQuery(params))
     .on('result', function (result) {
       //_DEBUG && console.log('*** mariasql results result:', result);
