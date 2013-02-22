@@ -94,7 +94,7 @@ dataSource.withSession(function (session) {
 });
 ```
 
-* work ```withSession()``` and ```q````:
+* work ```withSession()``` and ```promise```:
 
 ```javascript
 dataSource.withSession(function (session) {
@@ -109,12 +109,13 @@ dataSource.withSession(function (session) {
     .then(function (update_result) {
       return session.destroy(...);
     });
-}).then(function (result) {
-    ...
-  })
-  .fail(function (err) {
-    ...
-  });
+})
+.then(function (destroy_result) {
+  ...
+})
+.fail(function (err) {
+  ...
+});
 ```
 
 How to Execute Queries
@@ -126,7 +127,8 @@ How to Execute Queries
 session.select('test1.selectAll', [])
   .then(function (rows) {
     ...
-  }).fail(function (err) {
+  })
+  .fail(function (err) {
     ...
   });
 ```
