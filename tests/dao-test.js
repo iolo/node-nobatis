@@ -170,6 +170,33 @@ module.exports = {
     console.log('*** create new to insert: ', obj);
 
     testDao.save(obj)
+      .then(function (insertRow) {
+        console.log('*** save insert:', arguments);
+
+        test.ok(insertRow > 0);
+
+        return testDao.load(insertRow);
+      })
+      .then(function (savedObj) {
+        console.log('*** save insert and reload:', arguments);
+
+        test.ok(savedObj);
+        test.ok(!testDao.isNew(savedObj));
+        test.equal('foo', obj.name);
+      })
+      .fail(function (err) {
+        test.ifError(err);
+      })
+      .fin(test.done);
+  },
+
+  testSave_insert_reload: function (test) {
+    var obj = testDao.createNew({name: 'foo'});
+    test.ok(testDao.isNew(obj));
+    test.equal('foo', obj.name);
+    console.log('*** create new to insert: ', obj);
+
+    testDao.save(obj, true)
       .then(function (savedObj) {
         console.log('*** save insert:', arguments);
 
@@ -193,6 +220,34 @@ module.exports = {
 
         return testDao.save(obj);
       })
+      .then(function (result) {
+
+        test.ok(result);
+
+        return testDao.load(3);
+      })
+      .then(function (savedObj) {
+        console.log('*** save update reload 3:', arguments);
+
+        test.ok(!testDao.isNew(savedObj));
+        test.equal('foo', savedObj.name);
+      })
+      .fail(function (err) {
+        test.ifError(err);
+      })
+      .fin(test.done);
+  },
+
+  testSave_update_reload: function (test) {
+    testDao.load(3)
+      .then(function (obj) {
+        console.log('*** load 3 to update:', obj);
+
+        test.ok(!testDao.isNew(obj));
+        obj.name = 'foo';
+
+        return testDao.save(obj, true);
+      })
       .then(function (savedObj) {
         console.log('*** save update 3:', arguments);
 
@@ -211,7 +266,7 @@ module.exports = {
     test.equal(-999, obj.id);
     test.equal('foo', obj.name);
 
-    testDao.save(obj)
+    testDao.save(obj, true)
       .then(function (savedObj) {
         console.log('*** save update -999:', arguments);
 
