@@ -1,125 +1,127 @@
 'use strict';
 
 var
-  _ = require('underscore'),
-  q = require('q'),
-  nobatis = require('./nobatis'),
-  DEF_CONFIG = {
-    primaryKey: 'id',
-    primaryKeyGenerated: true
-  },
-  _DEBUG = !!process.env['NOBATIS_DEBUG'];
+    _ = require('lodash'),
+    Q = require('q'),
+    nobatis = require('./nobatis'),
+    DEF_CONFIG = {
+        primaryKey: 'id',
+        primaryKeyGenerated: true
+    },
+    debug = require('debug')('nobatis:dao'),
+    DEBUG = debug.enabled;
 
 function BaseDao(dataSource, config) {
-  _DEBUG && console.log('create dao: ', config);
+    DEBUG && debug('create dao: ', config);
 
-  this.dataSource = dataSource;
+    this.dataSource = dataSource;
 
-  config = _.defaults(config, DEF_CONFIG);
+    config = _.defaults(config, DEF_CONFIG);
 
-  this.table = config.table;
-  this.primaryKey = config.primaryKey;
-  this.primaryKeyGenerated = config.primaryKeyGenerated;
-  if (_.isFunction(config.defaults)) {
-    this.defaults = config.defaults;
-  } else {
-    this.defaults = function () {
-      return config.defaults;
-    };
-  }
-  this.queries = _.defaults(config.queries || {}, {
-    select: this.table + '.select',
-    insert: this.table + '.insert',
-    update: this.table + '.update',
-    delete: this.table + '.delete',
-    selectAll: this.table + '.selectAll'
-  });
-};
+    this.table = config.table;
+    this.primaryKey = config.primaryKey;
+    this.primaryKeyGenerated = config.primaryKeyGenerated;
+    if (_.isFunction(config.defaults)) {
+        this.defaults = config.defaults;
+    } else {
+        this.defaults = function () {
+            return config.defaults;
+        };
+    }
+    this.queries = _.defaults(config.queries || {}, {
+        select: this.table + '.select',
+        insert: this.table + '.insert',
+        update: this.table + '.update',
+        delete: this.table + '.delete',
+        selectAll: this.table + '.selectAll'
+    });
+}
 
 BaseDao.prototype.createNew = function (obj) {
-  _DEBUG && console.log('dao new:', obj);
-  return _.defaults(obj || {}, this.defaults());
+    DEBUG && debug('dao new:', obj);
+    return _.defaults(obj || {}, this.defaults());
 };
 
 BaseDao.prototype.isNew = function (obj) {
-  // XXX: undefined, null, 0, false, ...
-  var primaryKey = obj[this.primaryKey];
-  return !primaryKey || primaryKey === '0';
+    // XXX: undefined, null, 0, false, ...
+    var primaryKey = obj[this.primaryKey];
+    return !primaryKey || primaryKey === '0';
 };
 
 BaseDao.prototype.load = function (pk) {
-  var query = this.queries.select;
-  return this.dataSource.withSession(function (session) {
-    _DEBUG && console.log('dao load:', pk);
-    return session.selectOne(query, [ pk ]);
-  });
+    var query = this.queries.select;
+    return this.dataSource.withSession(function (session) {
+        DEBUG && debug('dao load:', pk);
+        return session.selectOne(query, [ pk ]);
+    });
 };
 
 BaseDao.prototype.save = function (obj, reload) {
-  var self = this;
-  return this.dataSource.withSession(function (session) {
-    if (self.isNew(obj)) {
-      var query = self.queries.insert;
-      _DEBUG && console.log('dao save insert:', obj);
-      return session.insert(query, obj)
-        .then(function (insertId) {
-          _DEBUG && console.log('dao save insert result:', arguments);
-          if (self.primaryKeyGenerated) {
-            obj[self.primaryKey] = insertId;
-          }
-          if (!insertId) {
-            throw new nobatis.NobatisError('save with insert error');
-          }
-          if (reload) {
-            // XXX: avoid concurrency issue
-            // 'cause mysql doesn't support "INSERT ... RETRUNING ..."
-            return self.load(insertId);
-          } else {
-            return insertId;
-          }
-        });
-    } else {
-      var query = self.queries.update;
-      _DEBUG && console.log('dao save update:', obj);
-      return session.update(query, obj)
-        .then(function (affectedRows) {
-          _DEBUG && console.log('dao save update result:', arguments);
-          if (affectedRows !== 1) {
-            throw new nobatis.NobatisError('save with update error');
-          }
-          if (reload) {
-            // XXX: avoid concurrency issue
-            // 'cause mysql doesn't support "INSERT ... RETRUNING ..."
-            return self.load(obj[self.primaryKey]);
-          } else {
-            return true;
-          }
-        });
-    }
-  });
+    var self = this;
+    return this.dataSource.withSession(function (session) {
+        var query;
+        if (self.isNew(obj)) {
+            query = self.queries.insert;
+            DEBUG && debug('dao save insert:', obj);
+            return session.insert(query, obj)
+                .then(function (insertId) {
+                    DEBUG && debug('dao save insert result:', arguments);
+                    if (self.primaryKeyGenerated) {
+                        obj[self.primaryKey] = insertId;
+                    }
+                    if (!insertId) {
+                        throw new nobatis.NobatisError('save with insert error');
+                    }
+                    if (reload) {
+                        // XXX: avoid concurrency issue
+                        // 'cause mysql doesn't support "INSERT ... RETURNING ..."
+                        return self.load(insertId);
+                    } else {
+                        return insertId;
+                    }
+                });
+        } else {
+            query = self.queries.update;
+            DEBUG && debug('dao save update:', obj);
+            return session.update(query, obj)
+                .then(function (affectedRows) {
+                    DEBUG && debug('dao save update result:', arguments);
+                    if (affectedRows !== 1) {
+                        throw new nobatis.NobatisError('save with update error');
+                    }
+                    if (reload) {
+                        // XXX: avoid concurrency issue
+                        // 'cause mysql doesn't support "INSERT ... RETURNING ..."
+                        return self.load(obj[self.primaryKey]);
+                    } else {
+                        return true;
+                    }
+                });
+        }
+    });
 };
 
 BaseDao.prototype.destroy = function (pk) {
-  var query = this.queries.delete;
-  return this.dataSource.withSession(function (session) {
-    _DEBUG && console.log('dao destroy:', pk);
-    return session.destroy(query, [ pk ])
-      .then(function (affectedRows) {
-        _DEBUG && console.log('dao destory result:', arguments);
-        if (affectedRows !== 1) {
-          throw new nobatis.NobatisError('destroy error');
-        }
-        return true;
-      });
-  });
+    var query = this.queries.delete;
+    return this.dataSource.withSession(function (session) {
+        DEBUG && debug('dao destroy:', pk);
+        return session.destroy(query, [ pk ])
+            .then(function (affectedRows) {
+                DEBUG && debug('dao destroy result:', arguments);
+                if (affectedRows !== 1) {
+                    throw new nobatis.NobatisError('destroy error');
+                }
+                return true;
+            });
+    });
 };
 
 BaseDao.prototype.all = function (bounds) {
-  _DEBUG && console.log('dao all:', bounds);
-  var query = this.queries.selectAll;
-  return this.dataSource.withSession(function (session) {
-    return session.select(query, [], bounds);
-  });
+    DEBUG && debug('dao all:', bounds);
+    var query = this.queries.selectAll;
+    return this.dataSource.withSession(function (session) {
+        return session.select(query, [], bounds);
+    });
 };
 
 // TODO: ... support association?
@@ -177,12 +179,12 @@ BaseDao.prototype.all = function (bounds) {
 /////////////////////////////////////////////////////////////////////
 
 function createDao(dataSource, config) {
-  return new BaseDao(dataSource, config);
+    return new BaseDao(dataSource, config);
 }
 
 /////////////////////////////////////////////////////////////////////
 
 module.exports = {
-  BaseDao: BaseDao,
-  createDao: createDao
+    BaseDao: BaseDao,
+    createDao: createDao
 };

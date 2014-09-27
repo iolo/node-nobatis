@@ -1,26 +1,31 @@
 nobatis
 =======
 
-*This is extremely experimental stuff*
-
-This is a simple "mybatis-like" dao for nodejs.
+This is a simple [mybatis](http://mybatis.org)-like DAO(NOT ORM) for node.js.
 
 Features
 --------
 
-* TBW ...
+* query mapper and builder
+* TODO: connection management
+* TODO: promise support(kriskowal's Q)
+* TODO: caching
+* TODO: validation 
+* TODO: logging 
+* TODO: error handling
+* DAO(NOT ORM)
 
 Install
 -------
 
 ```
-npm install nobatis
+$ npm install nobatis
 ```
 
 or
 
 ```
-npm install git@github.com:iolo/node-nobatis.git
+$ npm install git@github.com:iolo/node-nobatis.git
 ```
 
 How to Get DataSource
@@ -113,7 +118,7 @@ dataSource.withSession(function (session) {
 .then(function (destroy_result) {
   ...
 })
-.fail(function (err) {
+.catch(function (err) {
   ...
 });
 ```
@@ -128,7 +133,7 @@ session.select('test1.selectAll', [])
   .then(function (rows) {
     ...
   })
-  .fail(function (err) {
+  .catch(function (err) {
     ...
   });
 ```
@@ -140,7 +145,7 @@ session.select('test1.selectAll', [], {offset:2, limit:2})
   .then(function (rows) {
     ...
   })
-  .fail(function (err) {
+  .catch(function (err) {
     ...
   });
 ```
@@ -151,7 +156,7 @@ session.select('test1.selectAll', [], {offset:2, limit:2})
 session.selectOne('test1.select', \[1])
   .then(function (row) {
     ...
-  .fail(function (err) {
+  .catch(function (err) {
     ...
   });
 ```
@@ -162,7 +167,7 @@ session.selectOne('test1.select', \[1])
 session.insert('test1.insert', {name:'a'})
   .then(function (insertId) {
     ...
-  .fail(function (err) {
+  .catch(function (err) {
     ...
   });
 ```
@@ -173,7 +178,7 @@ session.insert('test1.insert', {name:'a'})
 session.update('test1.update', {id:1, name:'a'})
   .then(function (affectedRows) {
     ...
-  .fail(function (err) {
+  .catch(function (err) {
     ...
   });
 ```
@@ -184,7 +189,7 @@ session.update('test1.update', {id:1, name:'a'})
 session.destroy('test1.delete', \[1])
   .then(function (affectedRows) {
     ...
-  .fail(function (err) {
+  .catch(function (err) {
     ...
   });
 ```
@@ -231,7 +236,7 @@ dao.isNew(obj);
 dao.load(pk)
   .then(function (obj) {
     ...
-  .fail(function (err) {
+  .catch(function (err) {
     ...
   });
 ```
@@ -241,7 +246,7 @@ dao.load(pk)
 dao.save(obj)
   .then(function (affectedRow-or-insertId) {
     ...
-  .fail(function (err) {
+  .catch(function (err) {
     ...
   });
 ```
@@ -251,7 +256,7 @@ dao.save(obj)
 dao.save(obj, true)
   .then(function (obj) {
     ...
-  .fail(function (err) {
+  .catch(function (err) {
     ...
   });
 ```
@@ -261,7 +266,7 @@ dao.save(obj, true)
 dao.destroy(pk)
   .then(function (success_or_not) {
     ...
-  .fail(function(err) {
+  .catch(function(err) {
     ...
   });
 ```
@@ -273,7 +278,7 @@ dao.all()
     ...
   .progress(function (row) {
     ...
-  .fail(function(err) {
+  .catch(function(err) {
     ...
   });
 ```
@@ -285,11 +290,17 @@ dao.all({offset:10, limit:10})
     ...
   .progress(function (row) {
     ...
-  .fail(function(err) {
+  .catch(function(err) {
     ...
   });
 ```
 
-* see also [https://github.com/kriskowal/q]
+More
+----
 
-* TBW
+* see also
+    - [kriskowal's Q](https://github.com/kriskowal/q)
+    - [mscdex's mariasql](https://github.com/mscdex/node-mariasql)
+    - [felixge's mysql](https://github.com/felixge/node-mysql)
+
+* may the *SOURCE* be with you...

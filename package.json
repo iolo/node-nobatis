@@ -1,26 +1,33 @@
 {
-  "name": "nobatis",
-  "version": "0.0.7",
-  "description":"simple mybatis-like dao for nodejs",
-  "author":"Dongsu Jang <iolothebard@gmail.com>",
-  "repository":{
-    "type": "git",
-    "url": "git://git@github.com/iolo/node-nobatis.git"
-  },
-  "license": "MIT",
-  "engine":{
-    "node": ">=0.8"
-  },
-  "dependencies": {
-    "mariasql": ">=0.1.12",
-    "underscore": ">=1.4.3",
-    "q": ">=0.8.12"
-  },
-  "devDependencies": {
-    "nodeunit": ">=0.7.4"
-  },
-  "directories": {
-    "lib": "./lib"
-  },
-  "main": "./libs/nobatis"
+    "name": "nobatis",
+    "version": "0.1.0",
+    "description": "simple mybatis-like DAO(NOT ORM) for node.js",
+    "author": "Dongsu Jang <iolothebard@gmail.com>",
+    "repository": {
+        "type": "git",
+        "url": "git://git@github.com/iolo/node-nobatis.git"
+    },
+    "license": "MIT",
+    "engine": {
+        "node": ">=0.10"
+    },
+    "dependencies": {
+        "debug": "^2.0.0",
+        "lodash": "^2.4.1",
+        "q": "^1.0.1"
+    },
+    "optionalDependencies": {
+        "mariasql": "^0.1.21",
+        "mysql": "^2.5.1"
+    },
+    "devDependencies": {
+        "grunt": "^0.4.5",
+        "grunt-contrib-jshint": "^0.10.0",
+        "grunt-mocha-test": "latest",
+        "mocha": "latest"
+    },
+    "directories": {
+        "lib": "./lib"
+    },
+    "main": "./libs/nobatis"
 }
